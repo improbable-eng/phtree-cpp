@@ -17,7 +17,7 @@
 #ifndef PHTREE_COMMON_PH_TREE_DEBUG_HELPER_H
 #define PHTREE_COMMON_PH_TREE_DEBUG_HELPER_H
 
-#include "phtree/common/ph_tree_stats.h"
+#include "ph_tree_stats.h"
 
 namespace improbable::phtree {
 
