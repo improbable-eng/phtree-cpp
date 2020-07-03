@@ -1,0 +1,10 @@
+.*
+!.bazelrc
+!.clang-format
+!.gitignore
+bazel-*
+!bazel-*.sh
+compile_commands.json
+perf.data*
+build
+

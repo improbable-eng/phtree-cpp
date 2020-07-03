@@ -1,0 +1,17 @@
+{
+   openssl_leak
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:realloc
+   fun:CRYPTO_realloc
+   fun:ERR_add_error_vdata
+   fun:ERR_add_error_data
+   fun:dlfcn_load
+   fun:DSO_load
+   fun:DSO_dsobyaddr
+   fun:ossl_init_load_crypto_nodelete
+   fun:ossl_init_load_crypto_nodelete_ossl_
+   fun:__pthread_once_slow
+   fun:CRYPTO_THREAD_run_once
+   fun:OPENSSL_init_crypto
+}
