@@ -49,4 +49,6 @@ script:
   # if the project uses ctest we can run the tests like this
   # - make test
   - ./examples/Example
+  # The 'install' used a different directoy, so we need to go back
+  - cd "${TRAVIS_BUILD_DIR}"
   - bazel test ...
