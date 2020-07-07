@@ -27,12 +27,6 @@ install:
 #    fi
   - cmake --version
 
-#addons:
-#  snaps:
-#    - name: cmake
-#      confinement: classic # or devmode
-#      channel: 3.14/stable # will be passed to --channel flag
-
 before_script:
   # The 'install'used a different directoy, so we need to go back
   - cd "${TRAVIS_BUILD_DIR}"
