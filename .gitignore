@@ -2,6 +2,7 @@
 !.bazelrc
 !.clang-format
 !.gitignore
+!.travis.yaml
 bazel-*
 !bazel-*.sh
 compile_commands.json
