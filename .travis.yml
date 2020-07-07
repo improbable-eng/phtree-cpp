@@ -1,8 +1,14 @@
-dist: focal
+dist: bionic
 language: cpp
 
 compiler:
   - gcc
+
+addons:
+  snaps:
+    - name: cmake
+      confinement: classic # or devmode
+      channel: 3.14/stable # will be passed to --channel flag
 
 before_script:
   # create a build folder for the out-of-source build
