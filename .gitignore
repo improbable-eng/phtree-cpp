@@ -1,5 +1,6 @@
 .*
 !.bazelrc
+!.bazelversion
 !.clang-format
 !.gitignore
 !.travis.yml
