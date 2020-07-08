@@ -75,7 +75,7 @@ install:
   - cd build2
   # run cmake; here we assume that the project's
   # top-level CMakeLists.txt is located at '..'
-  - cmake .. -DCMAKE_BUILD_TYPE=Debug
+  #LINUX - cmake .. -DCMAKE_BUILD_TYPE=Debug
 
 script:
   ############################################################################
@@ -83,9 +83,9 @@ script:
   ############################################################################
   # once CMake has done its job we just build using make as usual
 #  - make
-  - cmake --build .
+  #LINUX - cmake --build .
   # run the example program
-  - ./examples/Example
+  #LINUX - ./examples/Example
   # Back to root folder
   - cd "${TRAVIS_BUILD_DIR}"
   ############################################################################
