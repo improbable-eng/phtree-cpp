@@ -58,14 +58,15 @@ install:
   # Ensure we are in correct folder
   #- cd "${TRAVIS_BUILD_DIR}"
   # create a build folder for the out-of-source build
-  - |
-    if [[ "${TRAVIS_OS_NAME}" == "linux" ]]; then
-      mkdir build
-    else
-      ls -la build
-    fi
+#  - |
+#    if [[ "${TRAVIS_OS_NAME}" == "linux" ]]; then
+#      mkdir build2
+#    else
+#      ls -la build
+#    fi
   # switch to build directory
-  - cd build
+  - mkdir build2
+  - cd build2
   # run cmake; here we assume that the project's
   # top-level CMakeLists.txt is located at '..'
   - cmake ..
