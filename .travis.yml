@@ -52,7 +52,7 @@ before_script:
   # Ensure we are in correct folder
   #- cd "${TRAVIS_BUILD_DIR}"
   # create a build folder for the out-of-source build
-  - mkdir -p build
+  - [ ! -d "build" ] && mkdir -p build
   # switch to build directory
   - cd build
   # run cmake; here we assume that the project's
