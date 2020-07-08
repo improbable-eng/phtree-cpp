@@ -1,0 +1,32 @@
+name: C/C++ CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: clang-format lint
+      uses: DoozyX/clang-format-lint-action@v0.6
+      with:
+        # Source folder to check formatting
+        source: .
+        # Version of clang-format
+        clangFormatVersion: 9
+    - name: configure
+      run: mkdir build && cd build && cmake ..
+    - name: run example
+      run: ./examples/Example
+    - name: cd ..
+      run: cd ..
+    - name: Bazel Action
+      uses: ngalaiko/bazel-action@2.0.0
+      with:
+        args: test ...
