@@ -1,8 +1,8 @@
 dist: bionic
 
 os:
-  - linux
-  - osx
+#  - linux
+#  - osx
   - windows
 
 language: cpp
@@ -50,7 +50,7 @@ install:
   # Go back to the root of the project and setup the build directory
   ############################################################################
   - cd "${TRAVIS_BUILD_DIR}"
-  - (mkdir build && cd build && cmake ..
+  - (mkdir build && cd build && cmake ..)
 
   ############################################################################
   # Set up CMake
