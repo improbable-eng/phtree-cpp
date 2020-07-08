@@ -45,7 +45,7 @@ before_install:
   #LINUX - wget https://github.com/bazelbuild/bazelisk/releases/download/v1.5.0/bazelisk-linux-amd64 && chmod +x bazelisk-linux-amd64 && mv bazelisk-linux-amd64 $HOME/bin/bazel
   #LINUX - wget https://github.com/bazelbuild/buildtools/releases/download/0.22.0/buildifier && chmod +x buildifier && mv buildifier $HOME/bin/
 
-  - wget https://github.com/bazelbuild/bazelisk/releases/download/v1.5.0/bazelisk-windows-amd64.exe && chmod +x bazelisk-windows-amd64 && mv bazelisk-windows-amd64 $HOME/bin/bazel
+  - wget https://github.com/bazelbuild/bazelisk/releases/download/v1.5.0/bazelisk-windows-amd64.exe && chmod +x bazelisk-windows-amd64.exe && mv bazelisk-windows-amd64.exe $HOME/bin/bazel
   - wget https://github.com/bazelbuild/buildtools/releases/download/3.3.0/buildifier.exe && chmod +x buildifier.exe && mv buildifier $HOME/bin/
   - $HOME/bin/bazel/bazelisk-windows-amd64.exe
 
