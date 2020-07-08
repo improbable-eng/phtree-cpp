@@ -41,8 +41,7 @@ build:macos --copt="-fvisibility=hidden"
 build:macos --copt="-Wno-error"
 build:macos --cxxopt="-std=c++17"
 
-#build:windows --cxxopt="/std:c++17"
-build:windows --cxxopt="/std:c++latest"
+build:windows --cxxopt="/std:c++17"
 # Disables wingdi.h, which avoids defining a macro called ERROR.
 build:windows --cxxopt="/DNOGDI"
 build:windows --features=static_link_msvcrt
