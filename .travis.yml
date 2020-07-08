@@ -1,5 +1,10 @@
 dist: bionic
 
+os:
+  - linux
+  - osx
+  - windows
+
 language: cpp
 
 compiler:
@@ -9,18 +14,28 @@ install:
   ############################################################################
   # All the dependencies are installed in ${HOME}/deps/
   ############################################################################
-  - DEPS_DIR="${HOME}/deps"
-  - mkdir -p ${DEPS_DIR} && cd ${DEPS_DIR}
+#  - DEPS_DIR="${HOME}/deps"
+#  - mkdir -p ${DEPS_DIR} && cd ${DEPS_DIR}
 
   ############################################################################
   # Install CMake
   ############################################################################
-  - CMAKE_URL="https://cmake.org/files/v3.14/cmake-3.14.7-Linux-x86_64.tar.gz"
-  - mkdir cmake && travis_retry wget --no-check-certificate --quiet -O - ${CMAKE_URL} | tar --strip-components=1 -xz -C cmake
-  - export PATH=${DEPS_DIR}/cmake/bin:${PATH}
+  #- CMAKE_URL="https://cmake.org/files/v3.14/cmake-3.14.7-Linux-x86_64.tar.gz"
+  #- mkdir cmake && travis_retry wget --no-check-certificate --quiet -O - ${CMAKE_URL} | tar --strip-components=1 -xz -C cmake
+  #- export PATH=${DEPS_DIR}/cmake/bin:${PATH}
+  - |
+    if [[ "${TRAVIS_OS_NAME}" == "linux" ]]; then
+      DEPS_DIR="${HOME}/deps"
+      mkdir -p ${DEPS_DIR} && cd ${DEPS_DIR}
+      CMAKE_URL="https://cmake.org/files/v3.14/cmake-3.14.7-Linux-x86_64.tar.gz"
+      mkdir cmake && travis_retry wget --no-check-certificate --quiet -O - ${CMAKE_URL} | tar --strip-components=1 -xz -C cmake
+      export PATH=${DEPS_DIR}/cmake/bin:${PATH}
+      cd "${TRAVIS_BUILD_DIR}"
+    fi
+#    else
+#      brew install cmake || brew upgrade cmake
+#    fi
   - cmake --version
-  # Back to root folder
-  - cd "${TRAVIS_BUILD_DIR}"
 
   ############################################################################
   # Install Bazel
@@ -34,6 +49,8 @@ before_script:
   ############################################################################
   # Set up CMake
   ############################################################################
+  # Ensure we are in correct folder
+  #- cd "${TRAVIS_BUILD_DIR}"
   # create a build folder for the out-of-source build
   - mkdir build
   # switch to build directory
