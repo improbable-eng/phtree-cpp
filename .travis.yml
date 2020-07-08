@@ -79,7 +79,8 @@ script:
   # Execute CMake
   ############################################################################
   # once CMake has done its job we just build using make as usual
-  - make
+#  - make
+  - cmake --build .
   # run the example program
   - ./examples/Example
   # Back to root folder
