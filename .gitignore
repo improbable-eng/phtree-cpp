@@ -1,10 +1,13 @@
 .*
 !.bazelrc
+!.bazelversion
 !.clang-format
 !.gitignore
+!.travis.yml
 bazel-*
 !bazel-*.sh
 compile_commands.json
 perf.data*
 build
 
+/bazel-phtree-cpp-public/

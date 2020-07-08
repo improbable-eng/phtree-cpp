@@ -1,4 +1,4 @@
-[![Build status](TODO)](TODO)
+[![Build Status](https://travis-ci.org/improbable-eng/phtree-cpp.svg?branch=master)](https://travis-ci.org/improbable-eng/phtree-cpp)
 
 # PH-Tree C++
 
