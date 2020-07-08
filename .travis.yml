@@ -64,15 +64,18 @@ install:
 #    else
 #      ls -la build
 #    fi
-  - MSBUILD_PATH="C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\MSBuild\Current\Bin"
-  - choco install visualstudio2019buildtools --package-parameters "--add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
+  - |
+    if [[ "${TRAVIS_OS_NAME}" == "linux" ]]; then
+      MSBUILD_PATH="C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\MSBuild\Current\Bin"
+      choco install visualstudio2019buildtools --package-parameters "--add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
+    fi
 
-  # switch to build directory
+  # switch to build directory. We use build2 because `build` already exists and is nor accessible in Windows. Why?
   - mkdir build2
   - cd build2
   # run cmake; here we assume that the project's
   # top-level CMakeLists.txt is located at '..'
-  - cmake ..
+  - cmake .. -DCMAKE_BUILD_TYPE=Debug
 
 script:
   ############################################################################
