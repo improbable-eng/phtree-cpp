@@ -64,6 +64,9 @@ install:
 #    else
 #      ls -la build
 #    fi
+  - MSBUILD_PATH="C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\MSBuild\Current\Bin"
+  - choco install visualstudio2019buildtools --package-parameters "--add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
+
   # switch to build directory
   - mkdir build2
   - cd build2
