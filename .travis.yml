@@ -69,7 +69,7 @@ install:
 #      ls -la build
 #    fi
   - |
-    if [[ "${TRAVIS_OS_NAME}" == "windows" ]]; then
+    if [[ "${TRAVIS_OS_NAME}" == "linux" ]]; then
 #      MSBUILD_PATH="C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\MSBuild\Current\Bin"
 #      choco install visualstudio2019buildtools --package-parameters "--add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
       choco install visualstudio2019community
