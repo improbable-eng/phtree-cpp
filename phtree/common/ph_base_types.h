@@ -153,16 +153,7 @@ std::ostream& operator<<(std::ostream& os, const PhPointD<DIM>& data) {
 
 template <dimension_t DIM>
 std::ostream& operator<<(std::ostream& os, const PhBoxD<DIM>& data) {
-    assert(DIM >= 1);
-    os << "[";
-    for (dimension_t i = 0; i < DIM - 1; i++) {
-        os << data[i] << ",";
-    }
-    os << data[DIM - 1] << "]:[";
-    for (dimension_t i = 0; i < DIM - 1; i++) {
-        os << data[DIM + i] << ",";
-    }
-    os << data[2 * DIM - 1] << "]";
+    os << data.min() << ":" << data.max();
     return os;
 }
 
