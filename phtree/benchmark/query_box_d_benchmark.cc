@@ -13,11 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "logging.h"
 #include "phtree/benchmark/benchmark_util.h"
-#include "phtree/phtree_box_d.h"
+#include "phtree/phtree.h"
 #include <benchmark/benchmark.h>
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/ansicolor_sink.h>
 #include <random>
 
 using namespace improbable;
@@ -29,26 +28,37 @@ namespace {
 const double GLOBAL_MAX = 10000;
 const double BOX_LEN = GLOBAL_MAX / 100.;
 
+enum QueryType { MIN_MAX_ITER, MIN_MAX_FOR_EACH };
+
+template <dimension_t DIM>
+using BoxType = PhBoxD<DIM>;
+
+template <dimension_t DIM>
+using PointType = PhPointD<DIM>;
+
+template <dimension_t DIM>
+using TreeType = PhTreeBoxD<DIM, int>;
+
 /*
  * Benchmark for window queries.
  */
-template <dimension_t DIM>
+template <dimension_t DIM, QueryType QUERY_TYPE>
 class IndexBenchmark {
   public:
     IndexBenchmark(
         benchmark::State& state,
         TestGenerator data_type,
         int num_entities,
-        double avg_query_result_size_);
+        double avg_query_result_size_ = 100);
 
     void Benchmark(benchmark::State& state);
 
   private:
     void SetupWorld(benchmark::State& state);
 
-    void QueryWorld(benchmark::State& state, PhPointD<DIM>& min, PhPointD<DIM>& max);
+    void QueryWorld(benchmark::State& state, BoxType<DIM>& query_box);
 
-    void CreateQuery(PhPointD<DIM>& min, PhPointD<DIM>& max);
+    void CreateQuery(BoxType<DIM>& query_box);
 
     const TestGenerator data_type_;
     const int num_entities_;
@@ -58,14 +68,14 @@ class IndexBenchmark {
         return GLOBAL_MAX * pow(avg_query_result_size_ / (double)num_entities_, 1. / (double)DIM);
     };
 
-    PhTreeBoxD<DIM, int> tree_;
+    TreeType<DIM> tree_;
     std::default_random_engine random_engine_;
     std::uniform_real_distribution<> cube_distribution_;
-    std::vector<PhBoxD<DIM>> boxes_;
+    std::vector<BoxType<DIM>> boxes_;
 };
 
-template <dimension_t DIM>
-IndexBenchmark<DIM>::IndexBenchmark(
+template <dimension_t DIM, QueryType QUERY_TYPE>
+IndexBenchmark<DIM, QUERY_TYPE>::IndexBenchmark(
     benchmark::State& state,
     TestGenerator data_type,
     int num_entities,
@@ -76,30 +86,25 @@ IndexBenchmark<DIM>::IndexBenchmark(
 , random_engine_{1}
 , cube_distribution_{0, GLOBAL_MAX}
 , boxes_(num_entities) {
-    auto console_sink = std::make_shared<spdlog::sinks::ansicolor_stdout_sink_mt>();
-    spdlog::set_default_logger(
-        std::make_shared<spdlog::logger>("", spdlog::sinks_init_list({console_sink})));
-    spdlog::set_level(spdlog::level::warn);
-
+    logging::SetupDefaultLogging();
     SetupWorld(state);
 }
 
-template <dimension_t DIM>
-void IndexBenchmark<DIM>::Benchmark(benchmark::State& state) {
+template <dimension_t DIM, QueryType QUERY_TYPE>
+void IndexBenchmark<DIM, QUERY_TYPE>::Benchmark(benchmark::State& state) {
     for (auto _ : state) {
         state.PauseTiming();
-        PhPointD<DIM> min;
-        PhPointD<DIM> max;
-        CreateQuery(min, max);
+        BoxType<DIM> query_box;
+        CreateQuery(query_box);
         state.ResumeTiming();
 
-        QueryWorld(state, min, max);
+        QueryWorld(state, query_box);
     }
 }
 
-template <dimension_t DIM>
-void IndexBenchmark<DIM>::SetupWorld(benchmark::State& state) {
-    spdlog::info("Setting up world with {} entities and {} dimensions.", num_entities_, DIM);
+template <dimension_t DIM, QueryType QUERY_TYPE>
+void IndexBenchmark<DIM, QUERY_TYPE>::SetupWorld(benchmark::State& state) {
+    logging::info("Setting up world with {} entities and {} dimensions.", num_entities_, DIM);
     CreateBoxData<DIM>(boxes_, data_type_, num_entities_, 0, GLOBAL_MAX, BOX_LEN);
     for (int i = 0; i < num_entities_; ++i) {
         tree_.emplace(boxes_[i], i);
@@ -110,15 +115,44 @@ void IndexBenchmark<DIM>::SetupWorld(benchmark::State& state) {
     state.counters["result_rate"] = benchmark::Counter(0, benchmark::Counter::kIsRate);
     state.counters["avg_result_count"] = benchmark::Counter(0, benchmark::Counter::kAvgIterations);
 
-    spdlog::info("World setup complete.");
+    logging::info("World setup complete.");
+}
+
+template <dimension_t DIM, typename T>
+struct Counter {
+    void operator()(BoxType<DIM> key, T& t) {
+        ++n_;
+    }
+
+    size_t n_ = 0;
+};
+
+template <dimension_t DIM>
+size_t Count_MMI(TreeType<DIM>& tree, BoxType<DIM>& query_box) {
+    size_t n = 0;
+    for (auto q = tree.begin_query(query_box); q != tree.end(); ++q) {
+        ++n;
+    }
+    return n;
 }
 
 template <dimension_t DIM>
-void IndexBenchmark<DIM>::QueryWorld(
-    benchmark::State& state, PhPointD<DIM>& min, PhPointD<DIM>& max) {
+size_t Count_MMFE(TreeType<DIM>& tree, BoxType<DIM>& query_box) {
+    Counter<DIM, int> callback;
+    tree.for_each(query_box, callback);
+    return callback.n_;
+}
+
+template <dimension_t DIM, QueryType QUERY_TYPE>
+void IndexBenchmark<DIM, QUERY_TYPE>::QueryWorld(benchmark::State& state, BoxType<DIM>& query_box) {
     int n = 0;
-    for (auto q = tree_.begin_query(min, max); q != tree_.end(); ++q) {
-        ++n;
+    switch (QUERY_TYPE) {
+    case MIN_MAX_ITER:
+        n = Count_MMI(tree_, query_box);
+        break;
+    case MIN_MAX_FOR_EACH:
+        n = Count_MMFE(tree_, query_box);
+        break;
     }
 
     state.counters["total_result_count"] += n;
@@ -127,53 +161,87 @@ void IndexBenchmark<DIM>::QueryWorld(
     state.counters["avg_result_count"] += n;
 }
 
-template <dimension_t DIM>
-void IndexBenchmark<DIM>::CreateQuery(PhPointD<DIM>& min, PhPointD<DIM>& max) {
+template <dimension_t DIM, QueryType QUERY_TYPE>
+void IndexBenchmark<DIM, QUERY_TYPE>::CreateQuery(BoxType<DIM>& query_box) {
     int length = query_endge_length();
     // scale to ensure query lies within boundary
     double scale = (GLOBAL_MAX - (double)length) / GLOBAL_MAX;
     for (dimension_t d = 0; d < DIM; ++d) {
-        scalar_t s = cube_distribution_(random_engine_);
+        auto s = cube_distribution_(random_engine_);
         s = s * scale;
-        min[d] = s;
-        max[d] = s + length;
+        query_box.min()[d] = s;
+        query_box.max()[d] = s + length;
     }
 }
 
 }  // namespace
 
 template <typename... Arguments>
-void PhTree3D(benchmark::State& state, Arguments&&... arguments) {
-    IndexBenchmark<3> benchmark{state, arguments...};
+void PhTree3D_MMI(benchmark::State& state, Arguments&&... arguments) {
+    IndexBenchmark<3, MIN_MAX_ITER> benchmark{state, arguments...};
+    benchmark.Benchmark(state);
+}
+
+template <typename... Arguments>
+void PhTree3D_MMFE(benchmark::State& state, Arguments&&... arguments) {
+    IndexBenchmark<3, MIN_MAX_FOR_EACH> benchmark{state, arguments...};
     benchmark.Benchmark(state);
 }
 
 // index type, scenario name, data_type, num_entities, query_result_size
 // PhTree 3D CUBE
-BENCHMARK_CAPTURE(PhTree3D, WQ_CU_100_of_1K, TestGenerator::CUBE, 1000, 100.0)
+BENCHMARK_CAPTURE(PhTree3D_MMFE, WQ_CU_100_of_1K, TestGenerator::CUBE, 1000)
     ->Unit(benchmark::kMillisecond);
 
-BENCHMARK_CAPTURE(PhTree3D, WQ_CU_100_of_10K, TestGenerator::CUBE, 10000, 100.0)
+BENCHMARK_CAPTURE(PhTree3D_MMFE, WQ_CU_100_of_10K, TestGenerator::CUBE, 10000)
     ->Unit(benchmark::kMillisecond);
 
-BENCHMARK_CAPTURE(PhTree3D, WQ_CU_100_of_100K, TestGenerator::CUBE, 100000, 100.0)
+BENCHMARK_CAPTURE(PhTree3D_MMFE, WQ_CU_100_of_100K, TestGenerator::CUBE, 100000)
     ->Unit(benchmark::kMillisecond);
 
-BENCHMARK_CAPTURE(PhTree3D, WQ_CU_100_of_1M, TestGenerator::CUBE, 1000000, 100.0)
+BENCHMARK_CAPTURE(PhTree3D_MMFE, WQ_CU_100_of_1M, TestGenerator::CUBE, 1000000)
     ->Unit(benchmark::kMillisecond);
 
 // index type, scenario name, data_type, num_entities, query_result_size
 // PhTree 3D CLUSTER
-BENCHMARK_CAPTURE(PhTree3D, WQ_CL_100_of_1K, TestGenerator::CLUSTER, 1000, 100.0)
+BENCHMARK_CAPTURE(PhTree3D_MMFE, WQ_CL_100_of_1K, TestGenerator::CLUSTER, 1000)
     ->Unit(benchmark::kMillisecond);
 
-BENCHMARK_CAPTURE(PhTree3D, WQ_CL_100_of_10K, TestGenerator::CLUSTER, 10000, 100.0)
+BENCHMARK_CAPTURE(PhTree3D_MMFE, WQ_CL_100_of_10K, TestGenerator::CLUSTER, 10000)
     ->Unit(benchmark::kMillisecond);
 
-BENCHMARK_CAPTURE(PhTree3D, WQ_CL_100_of_100K, TestGenerator::CLUSTER, 100000, 100.0)
+BENCHMARK_CAPTURE(PhTree3D_MMFE, WQ_CL_100_of_100K, TestGenerator::CLUSTER, 100000)
     ->Unit(benchmark::kMillisecond);
 
-BENCHMARK_CAPTURE(PhTree3D, WQ_CL_100_of_1M, TestGenerator::CLUSTER, 1000000, 100.0)
+BENCHMARK_CAPTURE(PhTree3D_MMFE, WQ_CL_100_of_1M, TestGenerator::CLUSTER, 1000000)
+    ->Unit(benchmark::kMillisecond);
+
+// index type, scenario name, data_type, num_entities, query_result_size
+// PhTree 3D CUBE
+BENCHMARK_CAPTURE(PhTree3D_MMI, WQ_CU_100_of_1K, TestGenerator::CUBE, 1000)
+    ->Unit(benchmark::kMillisecond);
+
+BENCHMARK_CAPTURE(PhTree3D_MMI, WQ_CU_100_of_10K, TestGenerator::CUBE, 10000)
+    ->Unit(benchmark::kMillisecond);
+
+BENCHMARK_CAPTURE(PhTree3D_MMI, WQ_CU_100_of_100K, TestGenerator::CUBE, 100000)
+    ->Unit(benchmark::kMillisecond);
+
+BENCHMARK_CAPTURE(PhTree3D_MMI, WQ_CU_100_of_1M, TestGenerator::CUBE, 1000000)
+    ->Unit(benchmark::kMillisecond);
+
+// index type, scenario name, data_type, num_entities, query_result_size
+// PhTree 3D CLUSTER
+BENCHMARK_CAPTURE(PhTree3D_MMI, WQ_CL_100_of_1K, TestGenerator::CLUSTER, 1000)
+    ->Unit(benchmark::kMillisecond);
+
+BENCHMARK_CAPTURE(PhTree3D_MMI, WQ_CL_100_of_10K, TestGenerator::CLUSTER, 10000)
+    ->Unit(benchmark::kMillisecond);
+
+BENCHMARK_CAPTURE(PhTree3D_MMI, WQ_CL_100_of_100K, TestGenerator::CLUSTER, 100000)
+    ->Unit(benchmark::kMillisecond);
+
+BENCHMARK_CAPTURE(PhTree3D_MMI, WQ_CL_100_of_1M, TestGenerator::CLUSTER, 1000000)
     ->Unit(benchmark::kMillisecond);
 
 BENCHMARK_MAIN();

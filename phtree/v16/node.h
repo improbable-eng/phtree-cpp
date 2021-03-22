@@ -17,9 +17,9 @@
 #ifndef PHTREE_V16_NODE_H
 #define PHTREE_V16_NODE_H
 
-#include "../common/ph_common.h"
-#include "../common/ph_tree_stats.h"
-#include "ph_entry.h"
+#include "entry.h"
+#include "../common/common.h"
+#include "../common/tree_stats.h"
 #include "phtree_v16.h"
 #include <map>
 
@@ -36,18 +36,16 @@ namespace improbable::phtree::v16 {
  * - 'std::map` is the least efficient for small node sizes but scales best with larger nodes and
  *   dimensionality. Remember that n_max = 2^DIM.
  */
-template <dimension_t DIM, typename T>
+template <dimension_t DIM, typename Entry>
 using EntryMap = typename std::conditional<
     DIM <= 3,
-    array_map<PhEntry<DIM, T>, (1 << DIM)>,
-    typename std::
-        conditional<DIM <= 8, sparse_map<PhEntry<DIM, T>>, std::map<hc_pos_t, PhEntry<DIM, T>>>::
-            type>::type;
+    array_map<Entry, (hc_pos_t(1) << DIM)>,
+    typename std::conditional<DIM <= 8, sparse_map<Entry>, std::map<hc_pos_t, Entry>>::type>::type;
 
-template <dimension_t DIM, typename T>
-using EntryIterator = decltype(EntryMap<DIM, T>().begin());
-template <dimension_t DIM, typename T>
-using EntryIteratorC = decltype(EntryMap<DIM, T>().cbegin());
+template <dimension_t DIM, typename Entry>
+using EntryIterator = decltype(EntryMap<DIM, Entry>().begin());
+template <dimension_t DIM, typename Entry>
+using EntryIteratorC = decltype(EntryMap<DIM, Entry>().cbegin());
 
 namespace {
 
@@ -64,16 +62,16 @@ namespace {
  * @param child_node The node to be removed from the parent node.
  * @param parent_node Current owner of the child node.
  */
-template <dimension_t DIM, typename T>
-void MergeIntoParent(
-    const PhPoint<DIM>& prefix_of_child_in_parent, Node<DIM, T>& child_node, Node<DIM, T>& parent) {
+template <dimension_t DIM, typename T, typename SCALAR>
+void MergeIntoParent(Node<DIM, T, SCALAR>& child_node, Node<DIM, T, SCALAR>& parent) {
     assert(child_node.GetEntryCount() == 1);
     // At this point we have found an entry that needs to be removed. We also know that we need to
     // remove the child node because it contains at most one other entry and it is not the root
     // node.
-    auto& entry = child_node.Entries().begin()->second;
+    auto map_entry = child_node.Entries().begin();
+    auto& entry = map_entry->second;
 
-    auto hc_pos_in_parent = CalcPosInArray(prefix_of_child_in_parent, parent.GetPostfixLen());
+    auto hc_pos_in_parent = CalcPosInArray(entry.GetKey(), parent.GetPostfixLen());
     auto& parent_entry = parent.Entries().find(hc_pos_in_parent)->second;
 
     if (entry.IsNode()) {
@@ -85,19 +83,13 @@ void MergeIntoParent(
 
     // Now move the single entry into the parent, the position in the parent is the same as the
     // child_node.
-    // We need the double 'move' here because moving anything into the parent_entry causes the
-    // destructors to be called first on child_node and everything referenced from it. If we were
-    // not moving the single child entry away first, it would be destructed by the destructor of
-    // child_node.
-    // TODO This is really bad, we are calling the copy constructor twice here.... (try 'const'...)
-    auto temporary_entry = std::move(entry);
-    parent_entry = std::move(temporary_entry);
+    parent_entry.ReplaceNodeWithDataFromEntry(std::move(entry));
 }
 }  // namespace
 
 /*
  * A node of the PH-Tree. It contains up to 2^DIM entries, each entry being either a leaf with data
- * of type T or a child node (both are of the variant type PhEntry).
+ * of type T or a child node (both are of the variant type Entry).
  *
  * The keys (coordinates) of all entries of a node have the same prefix, where prefix refers to the
  * first 'n' bits of their keys. 'n' is equivalent to "n = w - GetPostLen() - 1", where 'w' is the
@@ -114,22 +106,25 @@ void MergeIntoParent(
  * A node always has at least two entries, except for the root node which can have fewer entries.
  * None of the functions in this class are recursive, see Emplace().
  */
-template <dimension_t DIM, typename T>
+template <dimension_t DIM, typename T, typename SCALAR>
 class Node {
+    using Key = PhPoint<DIM, SCALAR>;
+    using Entry = Entry<DIM, T, SCALAR>;
+
   public:
     Node(bit_width_t infix_len, bit_width_t postfix_len)
     : postfix_len_(postfix_len), infix_len_(infix_len), entries_{} {
-        assert(infix_len_ < MAX_BIT_WIDTH);
+        assert(infix_len_ < MAX_BIT_WIDTH<SCALAR>);
         assert(infix_len >= 0);
     }
 
     // Nodes should never be copied!
-    Node(const Node<DIM, T>&) = delete;
-    Node(Node<DIM, T>&&) = delete;
-    Node<DIM, T>& operator=(const Node<DIM, T>&) = delete;
-    Node<DIM, T>& operator=(Node<DIM, T>&&) = delete;
+    Node(const Node&) = delete;
+    Node(Node&&) = delete;
+    Node& operator=(const Node&) = delete;
+    Node& operator=(Node&&) = delete;
 
-    [[nodiscard]] node_size_t GetEntryCount() const {
+    [[nodiscard]] auto GetEntryCount() const {
         return entries_.size();
     }
 
@@ -169,24 +164,16 @@ class Node {
      * @param __args Constructor arguments for creating a value T that can be inserted for the key.
      */
     template <typename... _Args>
-    PhEntry<DIM, T>* Emplace(bool& is_inserted, const PhPoint<DIM>& key, _Args&&... __args) {
+    Entry* Emplace(bool& is_inserted, const Key& key, _Args&&... __args) {
         hc_pos_t hc_pos = CalcPosInArray(key, GetPostfixLen());
-
-        // We do find() _and_ emplace() here. Why?
-        // We tried using only emplace(), but that requires either PhEntry<T> to be constructed
-        // beforehand, which is expensive, or we use the following, which is apparently even more
-        // expensive:
-        // std::piecewise_construct,
-        //           std::forward_as_tuple(pos),
-        //            std::forward_as_tuple(key, std::forward<_Args>(__args)...));
-        //
-        auto entry = entries_.find(hc_pos);
-        if (entry == entries_.end()) {
+        auto emplace_result = entries_.try_emplace(hc_pos, key, std::forward<_Args>(__args)...);
+        auto& entry = emplace_result.first->second;
+        // Return if emplace succeed, i.e. there was no entry.
+        if (emplace_result.second) {
             is_inserted = true;
-            T t{std::forward<_Args>(__args)...};
-            return &entries_.emplace(hc_pos, PhEntry<DIM, T>{key, t}).first->second;
+            return &entry;
         }
-        return HandleCollision(entry->second, is_inserted, key, std::forward<_Args>(__args)...);
+        return HandleCollision(entry, is_inserted, key, std::forward<_Args>(__args)...);
     }
 
     /*
@@ -196,7 +183,7 @@ class Node {
      * @param parent parent node
      * @return The sub node or null.
      */
-    const PhEntry<DIM, T>* Find(const PhPoint<DIM>& key) const {
+    const Entry* Find(const Key& key) const {
         hc_pos_t hc_pos = CalcPosInArray(key, GetPostfixLen());
         const auto& entry = entries_.find(hc_pos);
         if (entry != entries_.end() && DoesEntryMatch(entry->second, key)) {
@@ -215,7 +202,7 @@ class Node {
      * @param found This is and output parameter and will be set to 'true' if a value was removed.
      * @return A child node if the provided key leads to a child node.
      */
-    Node<DIM, T>* Erase(const PhPoint<DIM>& key, Node* parent, bool& found) {
+    Node* Erase(const Key& key, Node* parent, bool& found) {
         hc_pos_t hc_pos = CalcPosInArray(key, GetPostfixLen());
         auto it = entries_.find(hc_pos);
         if (it != entries_.end() && DoesEntryMatch(it->second, key)) {
@@ -226,28 +213,28 @@ class Node {
 
             found = true;
             if (parent && GetEntryCount() == 1) {
-                MergeIntoParent(key, *this, *parent);
+                MergeIntoParent(*this, *parent);
                 // WARNING: (this) is deleted here, do not refer to it beyond this point.
             }
         }
         return nullptr;
     }
 
-    EntryMap<DIM, T>& Entries() {
+    auto& Entries() {
         return entries_;
     }
 
-    const EntryMap<DIM, T>& Entries() const {
+    const auto& Entries() const {
         return entries_;
     }
 
     void GetStats(PhTreeStats& stats, bit_width_t current_depth = 0) const {
-        node_size_t num_children = entries_.size();
+        size_t num_children = entries_.size();
 
         ++stats.n_nodes_;
         ++stats.infix_hist_[GetInfixLen()];
         ++stats.node_depth_hist_[current_depth];
-        ++stats.node_size_log_hist_[32 - CountLeadingZeros(num_children)];
+        ++stats.node_size_log_hist_[32 - CountLeadingZeros(std::uint32_t(num_children))];
         stats.n_total_children_ += num_children;
 
         current_depth += GetInfixLen();
@@ -287,25 +274,24 @@ class Node {
     }
 
     void SetInfixLen(bit_width_t newInfLen) {
-        assert(newInfLen < MAX_BIT_WIDTH);
+        assert(newInfLen < MAX_BIT_WIDTH<SCALAR>);
         assert(newInfLen >= 0);
         infix_len_ = newInfLen;
     }
 
   private:
     template <typename... _Args>
-    PhEntry<DIM, T>& WriteValue(hc_pos_t hc_pos, const PhPoint<DIM>& new_key, _Args&&... __args) {
-        return entries_.emplace(hc_pos, PhEntry<DIM, T>{new_key, std::forward<_Args>(__args)...})
-            .first->second;
+    auto& WriteValue(hc_pos_t hc_pos, const Key& new_key, _Args&&... __args) {
+        return entries_.try_emplace(hc_pos, new_key, std::forward<_Args>(__args)...).first->second;
     }
 
-    void WriteEntry(hc_pos_t hc_pos, PhEntry<DIM, T>&& entry) {
+    void WriteEntry(hc_pos_t hc_pos, Entry&& entry) {
         if (entry.IsNode()) {
             auto& node = entry.GetNode();
             bit_width_t new_subnode_infix_len = postfix_len_ - node.postfix_len_ - 1;
             node.SetInfixLen(new_subnode_infix_len);
         }
-        entries_.emplace(hc_pos, std::move(entry));
+        entries_.try_emplace(hc_pos, std::move(entry));
     }
 
     /*
@@ -316,18 +302,15 @@ class Node {
      * inserted by this function.
      * @param new_key The key of the entry to be inserted
      * @param __args The constructor arguments for a new value T of a the new entry to be inserted
-     * @return A PhEntry that may contain a child node, a newly created entry or an existing entry.
+     * @return A Entry that may contain a child node, a newly created entry or an existing entry.
      * A child node indicates that no entry was inserted, but the caller should try inserting into
      * the child node. A newly created entry (indicated by is_inserted=true) indicates successful
      * insertion. An existing entry (indicated by is_inserted=false) indicates that there is already
      * an entry with the exact same key as new_key, so insertion has failed.
      */
     template <typename... _Args>
-    PhEntry<DIM, T>* HandleCollision(
-        PhEntry<DIM, T>& existing_entry,
-        bool& is_inserted,
-        const PhPoint<DIM>& new_key,
-        _Args&&... __args) {
+    auto* HandleCollision(
+        Entry& existing_entry, bool& is_inserted, const Key& new_key, _Args&&... __args) {
         assert(!is_inserted);
         // We have two entries in the same location (local pos).
         // Now we need to compare the keys.
@@ -361,17 +344,17 @@ class Node {
     }
 
     template <typename... _Args>
-    PhEntry<DIM, T>* InsertSplit(
-        PhEntry<DIM, T>& current_entry,
-        const PhPoint<DIM>& new_key,
+    auto* InsertSplit(
+        Entry& current_entry,
+        const Key& new_key,
         bit_width_t max_conflicting_bits,
         _Args&&... __args) {
-        const PhPoint<DIM> current_key = current_entry.GetKey();
+        const auto current_key = current_entry.GetKey();
 
         // determine length of infix
         bit_width_t new_local_infix_len = GetPostfixLen() - max_conflicting_bits;
         bit_width_t new_postfix_len = max_conflicting_bits - 1;
-        auto new_sub_node = std::make_unique<Node<DIM, T>>(new_local_infix_len, new_postfix_len);
+        auto new_sub_node = std::make_unique<Node>(new_local_infix_len, new_postfix_len);
         hc_pos_t pos_sub_1 = CalcPosInArray(new_key, new_postfix_len);
         hc_pos_t pos_sub_2 = CalcPosInArray(current_key, new_postfix_len);
 
@@ -395,11 +378,11 @@ class Node {
      * @return 'true' iff the relevant part of the key matches (prefix for nodes, whole key for
      * other entries).
      */
-    bool DoesEntryMatch(const PhEntry<DIM, T>& entry, const PhPoint<DIM>& key) const {
+    bool DoesEntryMatch(const Entry& entry, const Key& key) const {
         if (entry.IsNode()) {
-            const Node<DIM, T>& sub = entry.GetNode();
+            const auto& sub = entry.GetNode();
             if (sub.GetInfixLen() > 0) {
-                const bit_mask_t mask = MAX_MASK << (sub.GetPostfixLen() + 1);
+                const bit_mask_t<SCALAR> mask = MAX_MASK<SCALAR> << (sub.GetPostfixLen() + 1);
                 return KeyEquals(entry.GetKey(), key, mask);
             }
             return true;
@@ -417,7 +400,7 @@ class Node {
     // The number of bits between this node and the parent node. For 64bit keys possible values
     // range from 0 to 62.
     bit_width_t infix_len_;
-    EntryMap<DIM, T> entries_;
+    EntryMap<DIM, Entry> entries_;
 };
 
 }  // namespace improbable::phtree::v16

@@ -5,14 +5,16 @@ cc_library(
     srcs = [
     ],
     hdrs = [
-        "debug_helper.h",
+        "debug_helper_v16.h",
+        "entry.h",
+        "for_each.h",
+        "for_each_hc.h",
+        "iterator_base.h",
+        "iterator_full.h",
+        "iterator_hc.h",
+        "iterator_knn_hs.h",
+        "iterator_simple.h",
         "node.h",
-        "ph_entry.h",
-        "ph_iterator_base.h",
-        "ph_iterator_full.h",
-        "ph_iterator_hc.h",
-        "ph_iterator_knn_hs.h",
-        "ph_iterator_simple.h",
         "phtree_v16.h",
     ],
     visibility = [

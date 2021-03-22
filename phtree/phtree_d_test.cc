@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "phtree/phtree_d.h"
+#include "phtree/phtree.h"
 #include <gtest/gtest.h>
 #include <random>
 
@@ -24,7 +24,7 @@ template <dimension_t DIM>
 using TestPoint = PhPointD<DIM>;
 
 template <dimension_t DIM, typename T>
-using TestTree = PhTreeD<DIM, T, TestPoint<DIM>, PreprocessIEEE<DIM>, PostprocessIEEE<DIM>>;
+using TestTree = PhTreeD<DIM, T>;
 
 class DoubleRng {
   public:
@@ -90,7 +90,10 @@ void generateCube(std::vector<TestPoint<DIM>>& points, size_t N) {
 
     points.reserve(N);
     for (size_t i = 0; i < N; i++) {
-        auto point = TestPoint<DIM>{rng.next(), rng.next(), rng.next()};
+        TestPoint<DIM> point{};
+        for (dimension_t d = 0; d < DIM; ++d) {
+            point[d] = rng.next();
+        }
         if (refTree.count(point) != 0) {
             i--;
             continue;
@@ -99,15 +102,13 @@ void generateCube(std::vector<TestPoint<DIM>>& points, size_t N) {
         refTree.emplace(point, i);
         points.push_back(point);
     }
-    assert(refTree.size() == N);
-    assert(points.size() == N);
+    ASSERT_EQ(refTree.size(), N);
+    ASSERT_EQ(points.size(), N);
 }
 
 template <dimension_t DIM>
-void SmokeTestBasicOps() {
+void SmokeTestBasicOps(size_t N) {
     TestTree<DIM, Id> tree;
-    size_t N = 10000;
-
     std::vector<TestPoint<DIM>> points;
     generateCube(points, N);
 
@@ -143,7 +144,7 @@ void SmokeTestBasicOps() {
 
     for (size_t i = 0; i < N; i++) {
         TestPoint<DIM>& p = points.at(i);
-        auto q = tree.begin_query(p, p);
+        auto q = tree.begin_query({p, p});
         ASSERT_NE(q, tree.end());
         ASSERT_EQ(i, (*q)._i);
         q++;
@@ -157,7 +158,12 @@ void SmokeTestBasicOps() {
         ASSERT_NE(tree.find(p), tree.end());
         ASSERT_EQ(tree.count(p), 1);
         ASSERT_EQ(i, tree.find(p)->_i);
-        ASSERT_EQ(1, tree.erase(p));
+        if (i % 2 == 0) {
+            ASSERT_EQ(1, tree.erase(p));
+        } else {
+            auto iter = tree.find(p);
+            ASSERT_EQ(1, tree.erase(iter));
+        }
 
         ASSERT_EQ(tree.count(p), 0);
         ASSERT_EQ(tree.end(), tree.find(p));
@@ -178,10 +184,12 @@ void SmokeTestBasicOps() {
 }
 
 TEST(PhTreeDTest, SmokeTestBasicOps) {
-    SmokeTestBasicOps<3>();
-    SmokeTestBasicOps<6>();
-    SmokeTestBasicOps<10>();
-    SmokeTestBasicOps<20>();
+    SmokeTestBasicOps<1>(10000);
+    SmokeTestBasicOps<3>(10000);
+    SmokeTestBasicOps<6>(10000);
+    SmokeTestBasicOps<10>(10000);
+    SmokeTestBasicOps<20>(10000);
+    SmokeTestBasicOps<63>(100);
 }
 
 TEST(PhTreeDTest, TestDebug) {
@@ -245,7 +253,7 @@ TEST(PhTreeDTest, TestInsert) {
 
     for (size_t i = 0; i < N; i++) {
         TestPoint<dim>& p = points.at(i);
-        auto q = tree.begin_query(p, p);
+        auto q = tree.begin_query({p, p});
         ASSERT_NE(q, tree.end());
         ASSERT_EQ(i, (*q)._i);
         q++;
@@ -292,7 +300,7 @@ TEST(PhTreeDTest, TestEmplace) {
 
     for (size_t i = 0; i < N; i++) {
         TestPoint<dim>& p = points.at(i);
-        auto q = tree.begin_query(p, p);
+        auto q = tree.begin_query({p, p});
         ASSERT_NE(q, tree.end());
         ASSERT_EQ(i, (*q)._i);
         q++;
@@ -336,7 +344,7 @@ TEST(PhTreeDTest, TestSquareBrackets) {
 
     for (size_t i = 0; i < N; i++) {
         TestPoint<dim>& p = points.at(i);
-        auto q = tree.begin_query(p, p);
+        auto q = tree.begin_query({p, p});
         ASSERT_NE(q, tree.end());
         ASSERT_EQ(i, (*q)._i);
         q++;
@@ -445,6 +453,72 @@ TEST(PhTreeDTest, TestUpdateWithEmplace) {
     tree.clear();
 }
 
+TEST(PhTreeDTest, TestUpdateWithEmplaceHint) {
+    const dimension_t dim = 3;
+    TestTree<dim, Id> tree;
+    size_t N = 10000;
+    std::array<double, 4> deltas{0, 0.1, 1, 10};
+    std::vector<TestPoint<dim>> points;
+    populate(tree, points, N);
+
+    size_t d_n = 0;
+    for (auto& p : points) {
+        auto pOld = p;
+        d_n = (d_n + 1) % deltas.size();
+        double delta = deltas[d_n];
+        TestPoint<dim> pNew{pOld[0] + delta, pOld[1] + delta, pOld[2] + delta};
+        auto iter = tree.find(pOld);
+        int n = tree.erase(iter);
+        ASSERT_EQ(1, n);
+        tree.emplace_hint(iter, pNew, 42);
+        ASSERT_EQ(1, tree.count(pNew));
+        if (delta != 0.0) {
+            ASSERT_EQ(0, tree.count(pOld));
+        }
+        p = pNew;
+    }
+
+    ASSERT_EQ(N, tree.size());
+    tree.clear();
+}
+
+TEST(PhTreeDTest, TestEraseByIterator) {
+    const dimension_t dim = 3;
+    TestTree<dim, Id> tree;
+    size_t N = 10000;
+    std::vector<TestPoint<dim>> points;
+    populate(tree, points, N);
+
+    size_t i = 0;
+    for (auto& p : points) {
+        auto iter = tree.find(p);
+        ASSERT_NE(tree.end(), iter);
+        int count = tree.erase(iter);
+        ASSERT_EQ(1, count);
+        ASSERT_EQ(tree.end(), tree.find(p));
+        i++;
+    }
+
+    ASSERT_EQ(0, tree.erase(tree.end()));
+}
+
+TEST(PhTreeDTest, TestEraseByIteratorQuery) {
+    const dimension_t dim = 3;
+    TestTree<dim, Id> tree;
+    size_t N = 10000;
+    std::vector<TestPoint<dim>> points;
+    populate(tree, points, N);
+
+    for (size_t i = 0; i < N; ++i) {
+        auto iter = tree.begin();
+        ASSERT_NE(tree.end(), iter);
+        int count = tree.erase(iter);
+        ASSERT_EQ(1, count);
+    }
+
+    ASSERT_EQ(0, tree.erase(tree.end()));
+}
+
 TEST(PhTreeDTest, TestExtent) {
     const dimension_t dim = 3;
     TestTree<dim, Id> tree;
@@ -468,7 +542,7 @@ TEST(PhTreeDTest, TestExtent) {
 }
 
 template <dimension_t DIM, typename T>
-struct PhFilterEvenId {
+struct FilterEvenId {
     [[nodiscard]] constexpr bool IsEntryValid(const PhPoint<DIM>& key, const T& value) const {
         return value._i % 2 == 0;
     }
@@ -485,7 +559,7 @@ TEST(PhTreeDTest, TestExtentFilter) {
     populate(tree, points, N);
 
     int num_e = 0;
-    auto qE = tree.begin(PhFilterEvenId<dim, Id>());
+    auto qE = tree.begin(FilterEvenId<dim, Id>());
     while (qE != tree.end()) {
         ASSERT_TRUE(qE->_i > -1);
         ASSERT_TRUE(qE->_i % 2 == 0);
@@ -535,8 +609,9 @@ void referenceQuery(
     }
 }
 
+// We use 'int&' because gtest does not compile with assertions in non-void functions.
 template <dimension_t DIM>
-int testQuery(TestPoint<DIM>& min, TestPoint<DIM>& max, size_t N) {
+void testQuery(TestPoint<DIM>& min, TestPoint<DIM>& max, size_t N, int& result) {
     TestTree<DIM, Id> tree;
     std::vector<TestPoint<DIM>> points;
     populate(tree, points, N);
@@ -544,21 +619,22 @@ int testQuery(TestPoint<DIM>& min, TestPoint<DIM>& max, size_t N) {
     std::set<size_t> referenceResult;
     referenceQuery(points, min, max, referenceResult);
 
-    size_t n = 0;
-    for (auto it = tree.begin_query(min, max); it != tree.end(); it++) {
+    result = 0;
+    for (auto it = tree.begin_query({min, max}); it != tree.end(); it++) {
         auto& x = *it;
-        assert(x._i >= 0);
-        assert(referenceResult.count(x._i) == 1);
-        n++;
+        ASSERT_GE(x._i, 0);
+        ASSERT_EQ(referenceResult.count(x._i), 1);
+        result++;
     }
-    assert(referenceResult.size() == n);
-    return n;
+    ASSERT_EQ(referenceResult.size(), result);
 }
 
 TEST(PhTreeDTest, TestWindowQuery0) {
     const dimension_t dim = 3;
     TestPoint<dim> p{-10000, -10000, -10000};
-    ASSERT_EQ(0, testQuery<dim>(p, p, 10000));
+    int n = 0;
+    testQuery<dim>(p, p, 10000, n);
+    ASSERT_EQ(0, n);
 }
 
 TEST(PhTreeDTest, TestWindowQuery1) {
@@ -571,7 +647,7 @@ TEST(PhTreeDTest, TestWindowQuery1) {
     int n = 0;
     for (size_t i = 0; i < N; i++) {
         TestPoint<dim>& p = points.at(i);
-        auto q = tree.begin_query(p, p);
+        auto q = tree.begin_query({p, p});
         ASSERT_NE(q, tree.end());
         // just read the entry
         auto& x = *q;
@@ -587,7 +663,8 @@ TEST(PhTreeDTest, TestWindowQueryMany) {
     const dimension_t dim = 3;
     TestPoint<dim> min{-100, -100, -100};
     TestPoint<dim> max{100, 100, 100};
-    int n = testQuery<dim>(min, max, 10000);
+    int n = 0;
+    testQuery<dim>(min, max, 10000, n);
     ASSERT_LE(3, n);
     ASSERT_GE(100, n);
 }
@@ -597,7 +674,9 @@ TEST(PhTreeDTest, TestWindowQueryAll) {
     const size_t N = 10000;
     TestPoint<dim> min{-10000, -10000, -10000};
     TestPoint<dim> max{10000, 10000, 10000};
-    ASSERT_EQ(N, testQuery<dim>(min, max, N));
+    int n = 0;
+    testQuery<dim>(min, max, N, n);
+    ASSERT_EQ(N, n);
 }
 
 TEST(PhTreeDTest, TestWindowQueryManyMoving) {
@@ -616,7 +695,7 @@ TEST(PhTreeDTest, TestWindowQueryManyMoving) {
         referenceQuery(points, min, max, referenceResult);
 
         size_t n = 0;
-        for (auto it = tree.begin_query(min, max); it != tree.end(); it++) {
+        for (auto it = tree.begin_query({min, max}); it != tree.end(); it++) {
             auto& x = *it;
             ASSERT_EQ(referenceResult.count(x._i), 1);
             n++;
@@ -630,7 +709,48 @@ TEST(PhTreeDTest, TestWindowQueryManyMoving) {
         }
         ASSERT_GE(100, n);
     }
-    ASSERT_LE(3, 500);
+    ASSERT_LE(500, nn);
+    ASSERT_GE(5000, nn);
+}
+
+TEST(PhTreeDTest, TestWindowForEachQueryManyMoving) {
+    size_t N = 10000;
+    const dimension_t dim = 3;
+    TestTree<dim, Id> tree;
+    std::vector<TestPoint<dim>> points;
+    populate(tree, points, N);
+
+    double query_length = 200;
+    size_t nn = 0;
+    for (int i = -120; i < 120; i++) {
+        TestPoint<dim> min{i * 10., i * 9., i * 11.};
+        TestPoint<dim> max{i * 10 + query_length, i * 9 + query_length, i * 11 + query_length};
+        std::set<size_t> referenceResult;
+        referenceQuery(points, min, max, referenceResult);
+
+        struct Counter {
+            void operator()(TestPoint<dim> key, Id& t) {
+                ++n_;
+                ASSERT_EQ(referenceResult.count(t._i), 1);
+            }
+            std::set<size_t>& referenceResult;
+            size_t n_ = 0;
+        };
+
+        size_t n = 0;
+        Counter callback{referenceResult, 0};
+        tree.for_each({min, max}, callback);
+        n += callback.n_;
+        nn += callback.n_;
+        ASSERT_EQ(referenceResult.size(), n);
+
+        // basic check to ensure healthy queries
+        if (i > -50 && i < 50) {
+            ASSERT_LE(1, n);
+        }
+        ASSERT_GE(100, n);
+    }
+    ASSERT_LE(500, nn);
     ASSERT_GE(5000, nn);
 }
 
@@ -644,8 +764,8 @@ TEST(PhTreeDTest, TestWindowQueryIterators) {
     int n = 0;
     for (size_t i = 0; i < N; i++) {
         TestPoint<dim>& p = points.at(i);
-        auto q1 = tree.begin_query(p, p);
-        auto q2 = tree.begin_query(p, p);
+        auto q1 = tree.begin_query({p, p});
+        auto q2 = tree.begin_query({p, p});
         ASSERT_NE(q1, tree.end());
         ASSERT_NE(q2, tree.end());
         ASSERT_EQ(q1, q2);
@@ -667,7 +787,7 @@ TEST(PhTreeDTest, TestWindowQueryFilter) {
     int num_e = 0;
     TestPoint<dim> min{-100, -100, -100};
     TestPoint<dim> max{100, 100, 100};
-    auto qE = tree.begin_query(min, max, PhFilterEvenId<dim, Id>());
+    auto qE = tree.begin_query({min, max}, FilterEvenId<dim, Id>());
     while (qE != tree.end()) {
         ASSERT_TRUE(qE->_i > -1);
         ASSERT_TRUE(qE->_i % 2 == 0);
@@ -702,7 +822,7 @@ TEST(PhTreeDTest, TestKnnQuery) {
 
         size_t n = 0;
         double prevDist = -1;
-        auto q = tree.begin_knn_query(Nq, center);
+        auto q = tree.begin_knn_query(Nq, center, DistanceEuclidean<3>());
         while (q != tree.end()) {
             // just read the entry
             auto& e = *q;
@@ -754,8 +874,7 @@ TEST(PhTreeDTest, TestKnnQueryFilterAndDistanceL1) {
 
         size_t n = 0;
         double prevDist = -1;
-        auto q =
-            tree.begin_knn_query(Nq, center, PhDistanceLongL1<dim>(), PhFilterEvenId<dim, Id>());
+        auto q = tree.begin_knn_query(Nq, center, PhDistanceLongL1<dim>(), FilterEvenId<dim, Id>());
         while (q != tree.end()) {
             // just read the entry
             auto& e = *q;
@@ -786,8 +905,8 @@ TEST(PhTreeDTest, TestKnnQueryIterator) {
 
     TestPoint<dim> center{rng.next(), rng.next(), rng.next()};
     size_t n = 0;
-    auto q1 = tree.begin_knn_query(Nq, center);
-    auto q2 = tree.begin_knn_query(Nq, center);
+    auto q1 = tree.begin_knn_query(Nq, center, DistanceEuclidean<3>());
+    auto q2 = tree.begin_knn_query(Nq, center, DistanceEuclidean<3>());
     while (q1 != tree.end()) {
         ASSERT_NE(q1, tree.end());
         ASSERT_NE(q2, tree.end());
@@ -807,13 +926,13 @@ TEST(PhTreeDTest, SmokeTestPoint0) {
     ASSERT_EQ(tree.size(), 0);
     ASSERT_EQ(tree.find(p), tree.end());
 
-    auto q_window = tree.begin_query(p, p);
+    auto q_window = tree.begin_query({p, p});
     ASSERT_EQ(q_window, tree.end());
 
     auto q_extent = tree.begin();
     ASSERT_EQ(q_extent, tree.end());
 
-    auto q_knn = tree.begin_knn_query(10, p);
+    auto q_knn = tree.begin_knn_query(10, p, DistanceEuclidean<3>());
     ASSERT_EQ(q_knn, tree.end());
 
     ASSERT_EQ(0, tree.erase(p));
@@ -843,7 +962,7 @@ TEST(PhTreeDTest, SmokeTestPointInfinity) {
 
     // Note that the tree returns result in z-order, however, since the z-order is based on
     // the (unsigned) bit representation, negative values come _after_ positive values.
-    auto q_window = tree.begin_query(p_neg, p_pos);
+    auto q_window = tree.begin_query({p_neg, p_pos});
     ASSERT_EQ(1, q_window->_i);
     ++q_window;
     ASSERT_EQ(10, q_window->_i);
@@ -861,7 +980,7 @@ TEST(PhTreeDTest, SmokeTestPointInfinity) {
     ++q_extent;
     ASSERT_EQ(q_extent, tree.end());
 
-    auto q_knn = tree.begin_knn_query(10, p);
+    auto q_knn = tree.begin_knn_query(10, p, DistanceEuclidean<3>());
     ASSERT_EQ(1, q_knn->_i);
     ++q_knn;
     ASSERT_NE(q_knn, tree.end());
