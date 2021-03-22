@@ -3,7 +3,7 @@ dist: bionic
 language: cpp
 
 compiler:
-  - gcc
+  - clang-9
 
 before_install:
   ############################################################################
