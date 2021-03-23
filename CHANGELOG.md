@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Nothing yet.
 
 
-## [1.0.0] - 2021-03-22
+## [1.0.0] - 2021-03-23
 ### Added
 - API: `MultiMap`: A wrapper that makes PH-Tree behave as a multi-map.
 - API: `erase(iterator)`
@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - BREAKING CHANGE: `PhFilterNoOp` has been renamed to `FilterNoOp`
 - BREAKING CHANGE: kNN queries now always require the distance function to be specified.
 - BREAKING CHANGE: Preprocessors have been refactored and renamed to Converter/ScalarConverter
+- Moved CI builds from Travis to GitHub actions
 
 ### Removed
 - Nothing.
