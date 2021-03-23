@@ -13,11 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "logging.h"
 #include "phtree/benchmark/benchmark_util.h"
 #include "phtree/phtree.h"
 #include <benchmark/benchmark.h>
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/ansicolor_sink.h>
 #include <random>
 
 using namespace improbable;
@@ -45,9 +44,9 @@ class IndexBenchmark {
   private:
     void SetupWorld(benchmark::State& state);
 
-    void QueryWorld(benchmark::State& state, PhPoint<DIM>& min, PhPoint<DIM>& max);
+    void QueryWorld(benchmark::State& state, PhBox<DIM>& query);
 
-    void CreateQuery(PhPoint<DIM>& min, PhPoint<DIM>& max);
+    void CreateQuery(PhBox<DIM>& query);
 
     const TestGenerator data_type_;
     const int num_entities_;
@@ -75,11 +74,7 @@ IndexBenchmark<DIM>::IndexBenchmark(
 , random_engine_{1}
 , cube_distribution_{0, GLOBAL_MAX}
 , points_(num_entities) {
-    auto console_sink = std::make_shared<spdlog::sinks::ansicolor_stdout_sink_mt>();
-    spdlog::set_default_logger(
-        std::make_shared<spdlog::logger>("", spdlog::sinks_init_list({console_sink})));
-    spdlog::set_level(spdlog::level::warn);
-
+    logging::SetupDefaultLogging();
     SetupWorld(state);
 }
 
@@ -87,18 +82,17 @@ template <dimension_t DIM>
 void IndexBenchmark<DIM>::Benchmark(benchmark::State& state) {
     for (auto _ : state) {
         state.PauseTiming();
-        PhPoint<DIM> min;
-        PhPoint<DIM> max;
-        CreateQuery(min, max);
+        PhBox<DIM> query_box;
+        CreateQuery(query_box);
         state.ResumeTiming();
 
-        QueryWorld(state, min, max);
+        QueryWorld(state, query_box);
     }
 }
 
 template <dimension_t DIM>
 void IndexBenchmark<DIM>::SetupWorld(benchmark::State& state) {
-    spdlog::info("Setting up world with {} entities and {} dimensions.", num_entities_, DIM);
+    logging::info("Setting up world with {} entities and {} dimensions.", num_entities_, DIM);
     CreatePointData<DIM>(points_, data_type_, num_entities_, 0, GLOBAL_MAX);
     for (int i = 0; i < num_entities_; ++i) {
         tree_.emplace(points_[i], i);
@@ -109,14 +103,13 @@ void IndexBenchmark<DIM>::SetupWorld(benchmark::State& state) {
     state.counters["result_rate"] = benchmark::Counter(0, benchmark::Counter::kIsRate);
     state.counters["avg_result_count"] = benchmark::Counter(0, benchmark::Counter::kAvgIterations);
 
-    spdlog::info("World setup complete.");
+    logging::info("World setup complete.");
 }
 
 template <dimension_t DIM>
-void IndexBenchmark<DIM>::QueryWorld(
-    benchmark::State& state, PhPoint<DIM>& min, PhPoint<DIM>& max) {
+void IndexBenchmark<DIM>::QueryWorld(benchmark::State& state, PhBox<DIM>& query_box) {
     int n = 0;
-    for (auto q = tree_.begin_query(min, max); q != tree_.end(); ++q) {
+    for (auto q = tree_.begin_query(query_box); q != tree_.end(); ++q) {
         ++n;
     }
 
@@ -127,15 +120,15 @@ void IndexBenchmark<DIM>::QueryWorld(
 }
 
 template <dimension_t DIM>
-void IndexBenchmark<DIM>::CreateQuery(PhPoint<DIM>& min, PhPoint<DIM>& max) {
+void IndexBenchmark<DIM>::CreateQuery(PhBox<DIM>& query_box) {
     int length = query_endge_length();
     // scale to ensure query lies within boundary
     double scale = (GLOBAL_MAX - (double)length) / GLOBAL_MAX;
     for (dimension_t d = 0; d < DIM; ++d) {
-        scalar_t s = cube_distribution_(random_engine_);
+        auto s = cube_distribution_(random_engine_);
         s = s * scale;
-        min[d] = s;
-        max[d] = s + length;
+        query_box.min()[d] = s;
+        query_box.max()[d] = s + length;
     }
 }
 

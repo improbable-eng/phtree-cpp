@@ -13,11 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "logging.h"
 #include "phtree/benchmark/benchmark_util.h"
-#include "phtree/phtree_box_d.h"
+#include "phtree/phtree.h"
 #include <benchmark/benchmark.h>
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/ansicolor_sink.h>
 
 using namespace improbable;
 using namespace improbable::phtree;
@@ -32,10 +31,16 @@ const double GLOBAL_MAX = 10000;
 const double BOX_LEN = 10;
 
 template <dimension_t DIM>
+using BoxType = PhBoxD<DIM>;
+
+template <dimension_t DIM>
+using TreeType = PhTreeBoxD<DIM, size_t>;
+
+template <dimension_t DIM>
 struct UpdateOp {
-    scalar_t id_;
-    PhBoxD<DIM> old_;
-    PhBoxD<DIM> new_;
+    size_t id_;
+    BoxType<DIM> old_;
+    BoxType<DIM> new_;
 };
 
 /*
@@ -59,12 +64,12 @@ class IndexBenchmark {
     void UpdateWorld(benchmark::State& state);
 
     const TestGenerator data_type_;
-    const int num_entities_;
-    const int updates_per_round_;
+    const size_t num_entities_;
+    const size_t updates_per_round_;
     const double move_distance_;
 
-    PhTreeBoxD<DIM, scalar_t> tree_;
-    std::vector<PhBoxD<DIM>> boxes_;
+    TreeType<DIM> tree_;
+    std::vector<BoxType<DIM>> boxes_;
     std::vector<UpdateOp<DIM>> updates_;
     std::default_random_engine random_engine_;
     std::uniform_int_distribution<> entity_id_distribution_;
@@ -85,11 +90,7 @@ IndexBenchmark<DIM>::IndexBenchmark(
 , updates_(updates_per_round)
 , random_engine_{0}
 , entity_id_distribution_{0, num_entities - 1} {
-    auto console_sink = std::make_shared<spdlog::sinks::ansicolor_stdout_sink_mt>();
-    spdlog::set_default_logger(
-        std::make_shared<spdlog::logger>("", spdlog::sinks_init_list({console_sink})));
-    spdlog::set_level(spdlog::level::warn);
-
+    logging::SetupDefaultLogging();
     SetupWorld(state);
 }
 
@@ -106,15 +107,15 @@ void IndexBenchmark<DIM>::Benchmark(benchmark::State& state) {
 
 template <dimension_t DIM>
 void IndexBenchmark<DIM>::SetupWorld(benchmark::State& state) {
-    spdlog::info("Setting up world with {} entities and {} dimensions.", num_entities_, DIM);
+    logging::info("Setting up world with {} entities and {} dimensions.", num_entities_, DIM);
     CreateBoxData<DIM>(boxes_, data_type_, num_entities_, 0, GLOBAL_MAX, BOX_LEN);
-    for (int i = 0; i < num_entities_; ++i) {
+    for (size_t i = 0; i < num_entities_; ++i) {
         tree_.emplace(boxes_[i], i);
     }
 
     state.counters["total_upd_count"] = benchmark::Counter(0);
     state.counters["update_rate"] = benchmark::Counter(0, benchmark::Counter::kIsRate);
-    spdlog::info("World setup complete.");
+    logging::info("World setup complete.");
 }
 
 template <dimension_t DIM>
@@ -135,17 +136,21 @@ void IndexBenchmark<DIM>::BuildUpdates() {
 template <dimension_t DIM>
 void IndexBenchmark<DIM>::UpdateWorld(benchmark::State& state) {
     size_t initial_tree_size = tree_.size();
+    size_t n = 0;
     for (auto& update : updates_) {
         size_t result_erase = tree_.erase(update.old_);
         auto result_emplace = tree_.emplace(update.new_, update.id_);
-        assert(result_erase == 1);
-        assert(result_emplace.second);
+        n += result_erase == 1 && result_emplace.second;
+    }
+
+    if (n != updates_.size()) {
+        logging::error("Invalid update count: {}/{}", updates_.size(), n);
     }
 
     // For normal indexes we expect num_entities==size(), but the PhTree<Map<...>> index has
     // size() as low as (num_entities-duplicates).
     if (tree_.size() > num_entities_ || tree_.size() + updates_per_round_ < initial_tree_size) {
-        spdlog::error("Invalid index size after update: {}/{}", tree_.size(), num_entities_);
+        logging::error("Invalid index size after update: {}/{}", tree_.size(), num_entities_);
     }
 
     state.counters["total_upd_count"] += updates_per_round_;

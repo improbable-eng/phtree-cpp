@@ -1,5 +1,6 @@
 # general build options
 build --compilation_mode=dbg
+build --host_compilation_mode=fastbuild
 build --verbose_failures
 build --experimental_strict_action_env
 build --experimental_guard_against_concurrent_changes
@@ -18,6 +19,7 @@ build --enable_runfiles --build_runfile_links
 test --test_output=errors
 
 build:release --compilation_mode=opt
+build:release --host_compilation_mode=opt
 
 build:ci --keep_going
 build:ci --announce_rc
@@ -28,14 +30,16 @@ build:linux --copt="-fvisibility=hidden"
 build:linux --copt="-fno-omit-frame-pointer"  # for friendlier stack traces
 build:linux --copt="-Wno-error"
 build:linux --copt="-mavx"
+build:linux --copt="-Wsequence-point"
+build:linux --copt="-Wsign-compare"
 build:linux --cxxopt="-std=c++17"
-build:linux --linkopt="-lm"
-build:linux --linkopt="-latomic"
-build:linux --linkopt="-ldl"
 
 build:linux-release --config=release
 build:linux-release --config=linux
 build:linux-release --copt="-O3"
+
+build:benchmark --config=linux-release
+build:benchmark --copt="-g"  # To get code references in vtune
 
 build:macos --copt="-fvisibility=hidden"
 build:macos --copt="-Wno-error"
@@ -49,13 +53,16 @@ build:windows --features=static_link_msvcrt
 # the remote cache to never be hit due to differing build graph hashes.
 build:windows --action_env TMP=C:/Windows/Temp
 build:windows --action_env TEMP=C:/Windows/Temp
+build:windows --cxxopt="/DWIN32_LEAN_AND_MEAN"
 
 # Config for when tests are running in a "slow" environment such as Valgrind or TSan
 build:slow-tests --copt="-DIMPROBABLE_SLOW_TEST"
 
 # Valgrind config.
+build:valgrind-memcheck --config=linux
 build:valgrind-memcheck --config=slow-tests
 test:valgrind-memcheck --run_under=//tools/runners/sanitizers/valgrind-memcheck
+run:valgrind-memcheck --run_under=//tools/runners/sanitizers/valgrind-memcheck
 
 # Sanitizer configs; for an overview of the sanitizers, see https://github.com/google/sanitizers/wiki
 # For more specific information on sanitizers:

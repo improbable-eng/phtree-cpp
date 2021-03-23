@@ -13,11 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "logging.h"
 #include "phtree/benchmark/benchmark_util.h"
 #include "phtree/phtree.h"
 #include <benchmark/benchmark.h>
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/ansicolor_sink.h>
 
 using namespace improbable;
 using namespace improbable::phtree;
@@ -65,11 +64,7 @@ IndexBenchmark<DIM>::IndexBenchmark(
 , num_entities_(num_entities)
 , insertion_type_(insertionType)
 , points_(num_entities) {
-    auto console_sink = std::make_shared<spdlog::sinks::ansicolor_stdout_sink_mt>();
-    spdlog::set_default_logger(
-        std::make_shared<spdlog::logger>("", spdlog::sinks_init_list({console_sink})));
-    spdlog::set_level(spdlog::level::warn);
-
+    logging::SetupDefaultLogging();
     SetupWorld(state);
 }
 
@@ -91,13 +86,13 @@ void IndexBenchmark<DIM>::Benchmark(benchmark::State& state) {
 
 template <dimension_t DIM>
 void IndexBenchmark<DIM>::SetupWorld(benchmark::State& state) {
-    spdlog::info("Setting up world with {} entities and {} dimensions.", num_entities_, DIM);
+    logging::info("Setting up world with {} entities and {} dimensions.", num_entities_, DIM);
     CreatePointData<DIM>(points_, data_type_, num_entities_, 0, GLOBAL_MAX);
 
     state.counters["total_put_count"] = benchmark::Counter(0);
     state.counters["put_rate"] = benchmark::Counter(0, benchmark::Counter::kIsRate);
 
-    spdlog::info("World setup complete.");
+    logging::info("World setup complete.");
 }
 
 template <dimension_t DIM>

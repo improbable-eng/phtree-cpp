@@ -17,9 +17,7 @@
 #ifndef PHTREE_BENCHMARK_UTIL_H
 #define PHTREE_BENCHMARK_UTIL_H
 
-#include "phtree/common/ph_common.h"
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/ansicolor_sink.h>
+#include "phtree/common/common.h"
 #include <random>
 #include <vector>
 
@@ -64,7 +62,7 @@ auto CreateDataCLUSTER = [](auto& points,
     // loop over clusters
     PhPointD<DIM> cp;  // center point of cluster
     size_t id = 0;
-    for (int c = 0; c < num_cluster; ++c) {
+    for (size_t c = 0; c < num_cluster; ++c) {
         for (dimension_t d = 0; d < DIM; ++d) {
             cp[d] = distribution(random_engine);
         }
@@ -86,7 +84,7 @@ auto CreateDuplicates =
     [](auto& points, size_t num_unique_entries, size_t num_total_entities, std::uint32_t seed) {
         std::default_random_engine random_engine{seed};
         std::uniform_int_distribution<> distribution(0, num_unique_entries);
-        for (int i = num_unique_entries; i < num_total_entities; ++i) {
+        for (size_t i = num_unique_entries; i < num_total_entities; ++i) {
             // copy some random other point or box
             points[i] = points[distribution(random_engine)];
         }
@@ -107,7 +105,7 @@ auto CreatePointDataMinMax = [](auto& points,
     // Create at least 1 unique point
     // Note that the following point generator is likely, but not guaranteed, to created unique
     // points.
-    int num_unique_entries = 1 + (num_entities - 1) * (1. - fraction_of_duplicates);
+    size_t num_unique_entries = 1 + (num_entities - 1) * (1. - fraction_of_duplicates);
     points.reserve(num_entities);
     switch (test_generator) {
     case CUBE:

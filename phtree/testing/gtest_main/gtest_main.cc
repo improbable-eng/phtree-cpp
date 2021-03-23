@@ -15,16 +15,8 @@
  */
 
 #include <gmock/gmock.h>
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/ansicolor_sink.h>
-#include <memory>
 
 int main(int argc, char** argv) {
-    auto console_sink = std::make_shared<spdlog::sinks::ansicolor_stdout_sink_mt>();
-    spdlog::set_default_logger(
-        std::make_shared<spdlog::logger>("", spdlog::sinks_init_list({console_sink})));
-    spdlog::set_level(spdlog::level::trace);
-
     testing::InitGoogleMock(&argc, argv);
     return RUN_ALL_TESTS();
 }
