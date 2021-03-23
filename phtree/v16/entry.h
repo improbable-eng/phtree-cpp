@@ -38,7 +38,7 @@ class Node;
  *   child node is contained in a unique_ptr.
  */
 template <dimension_t DIM, typename T, typename SCALAR>
-class EntryXX {
+class Entry {
     using Key = PhPoint<DIM, SCALAR>;
     using Value = std::remove_const_t<T>;
     using Node = Node<DIM, T, SCALAR>;
