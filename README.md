@@ -13,11 +13,7 @@ The default implementation is limited to 63 dimensions.
 
 The API ist mostly analogous to STL's `std::map`, see function descriptions for details.
 
-See also :
-- T. Zaeschke, C. Zimmerli, M.C. Norrie:
-  "The PH-Tree -- A Space-Efficient Storage Structure and Multi-Dimensional Index", (SIGMOD 2014)
-- T. Zaeschke: "The PH-Tree Revisited", (2015)
-- T. Zaeschke, M.C. Norrie: "Efficient Z-Ordered Traversal of Hypercube Indexes" (BTW 2017).
+Theoretical background is listed [here](#research).
 
 More information about PH-Trees (including a Java implementation) is available [here](http://www.phtree.org). 
 
@@ -62,6 +58,11 @@ More information about PH-Trees (including a Java implementation) is available [
 [bazel](#bazel)
 
 [cmake](#cmake)
+
+
+## Further Resources
+
+[Theory](#research)
 
 ----------------------------------
 
@@ -536,3 +537,19 @@ cmake ..
 cmake --build .
 ./example/Example
 ```
+
+
+## Further Resources
+
+<a name="build-system-and-dependencies" />
+
+### Theory
+
+The PH-Tree is discussed in the follwoing publications and reports:   
+
+*
+- T. Zaeschke, C. Zimmerli, M.C. Norrie:
+  "The PH-Tree -- A Space-Efficient Storage Structure and Multi-Dimensional Index", (SIGMOD 2014)
+- T. Zaeschke: "The PH-Tree Revisited", (2015)
+- T. Zaeschke, M.C. Norrie: "Efficient Z-Ordered Traversal of Hypercube Indexes" (BTW 2017).
+
