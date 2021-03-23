@@ -1,0 +1,39 @@
+name: Bazel build
+
+on: [push]
+#  push:
+#    branches:
+#      - 'master'
+#  pull_request:
+
+jobs:
+  build:
+    name: Run bazel
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup bazel
+        uses: actions/setup-java@v1
+
+      - name: Create Build Environment - Install Bazel
+        # install bazelisk as bazel to install the appropriate bazel version
+        run: |
+          export PATH=$PATH:$HOME/bin && mkdir -p $HOME/bin
+          wget https://github.com/bazelbuild/bazelisk/releases/download/v1.5.0/bazelisk-linux-amd64 && chmod +x bazelisk-linux-amd64 && mv bazelisk-linux-amd64 $HOME/bin/bazel
+          wget https://github.com/bazelbuild/buildtools/releases/download/0.22.0/buildifier && chmod +x buildifier && mv buildifier $HOME/bin/
+
+      - name: Build
+        shell: bash
+        run: bazel build ...
+
+      - name: Test
+        # working-directory: ${{github.workspace}}/build
+        shell: bash
+        run: bazel test ...
