@@ -1,5 +1,3 @@
-[![Build status](TODO)](TODO)
-
 # PH-Tree C++
 
 The PH-Tree is an ordered index on an n-dimensional space (quad-/oct-/2^n-tree) where each
