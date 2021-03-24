@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "../phtree/phtree_d.h"
+#include "../phtree/phtree.h"
 #include <iostream>
 
 using namespace improbable::phtree;
@@ -39,7 +39,7 @@ int main() {
     std::cout << std::endl;
 
     std::cout << "All points in range:" << p1 << "/" << p2 << std::endl;
-    for (auto it = tree.begin_query(p2, p4); it != tree.end(); ++it) {
+    for (auto it = tree.begin_query({p2, p4}); it != tree.end(); ++it) {
         std::cout << "    " << it.second() << " -> " << it.first() << std::endl;
     }
     std::cout << std::endl;

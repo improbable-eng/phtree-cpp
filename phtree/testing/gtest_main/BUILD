@@ -9,7 +9,6 @@ cc_library(
     ],
     deps = [
         "@gtest",
-        "@spdlog",
     ],
     alwayslink = 1,
 )

@@ -14,38 +14,17 @@
  * limitations under the License.
  */
 
-#include "phtree/phtree_d.h"
+#include "phtree/phtree.h"
 #include <gtest/gtest.h>
 #include <random>
 
 using namespace improbable::phtree;
 
-static const double MY_MULTIPLIER = 1000000.;
-static const double MY_DIVIDER = 1. / MY_MULTIPLIER;
-
-template <dimension_t DIM>
-PhPoint<DIM> PreprocessMultiply(const PhPointD<DIM>& point) {
-    PhPoint<DIM> out;
-    for (dimension_t i = 0; i < DIM; ++i) {
-        out[i] = point[i] * MY_MULTIPLIER;
-    }
-    return out;
-}
-
-template <dimension_t DIM>
-PhPointD<DIM> PostprocessMultiply(const PhPoint<DIM>& in) {
-    PhPointD<DIM> out;
-    for (dimension_t i = 0; i < DIM; ++i) {
-        out[i] = ((double)in[i]) * MY_DIVIDER;
-    }
-    return out;
-}
-
 template <dimension_t DIM>
 using TestPoint = PhPointD<DIM>;
 
 template <dimension_t DIM, typename T>
-using TestTree = PhTreeD<DIM, T, TestPoint<DIM>, PreprocessMultiply<DIM>, PostprocessMultiply<DIM>>;
+using TestTree = PhTreeD<DIM, T, ConverterMultiply<DIM, 100 * 1000, 1>>;
 
 class DoubleRng {
   public:
@@ -134,7 +113,7 @@ void SmokeTestBasicOps() {
 
     for (size_t i = 0; i < N; i++) {
         TestPoint<DIM>& p = points.at(i);
-        auto q = tree.begin_query(p, p);
+        auto q = tree.begin_query({p, p});
         ASSERT_NE(q, tree.end());
         ASSERT_EQ(i, (*q)._i);
         q++;

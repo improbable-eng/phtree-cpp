@@ -1,7 +1,9 @@
 .*
 !.bazelrc
+!.bazelversion
 !.clang-format
 !.gitignore
+!.github
 bazel-*
 !bazel-*.sh
 compile_commands.json

@@ -4,9 +4,11 @@ cc_library(
     name = "benchmark",
     testonly = True,
     srcs = [
+        "logging.cc",
     ],
     hdrs = [
         "benchmark_util.h",
+        "logging.h",
     ],
     visibility = [
         "//visibility:public",
@@ -16,6 +18,21 @@ cc_library(
         "@spdlog",
     ],
     alwayslink = 1,
+)
+
+cc_binary(
+    name = "count_mm_d_benchmark",
+    testonly = True,
+    srcs = [
+        "count_mm_d_benchmark.cc",
+    ],
+    linkstatic = True,
+    deps = [
+        "//phtree",
+        "//phtree/benchmark",
+        "@gbenchmark//:benchmark",
+        "@spdlog",
+    ],
 )
 
 cc_binary(
@@ -199,10 +216,70 @@ cc_binary(
 )
 
 cc_binary(
+    name = "query_mm_d_benchmark",
+    testonly = True,
+    srcs = [
+        "query_mm_d_benchmark.cc",
+    ],
+    linkstatic = True,
+    deps = [
+        "//phtree",
+        "//phtree/benchmark",
+        "@gbenchmark//:benchmark",
+        "@spdlog",
+    ],
+)
+
+cc_binary(
+    name = "query_mm_box_d_benchmark",
+    testonly = True,
+    srcs = [
+        "query_mm_box_d_benchmark.cc",
+    ],
+    linkstatic = True,
+    deps = [
+        "//phtree",
+        "//phtree/benchmark",
+        "@gbenchmark//:benchmark",
+        "@spdlog",
+    ],
+)
+
+cc_binary(
     name = "update_d_benchmark",
     testonly = True,
     srcs = [
         "update_d_benchmark.cc",
+    ],
+    linkstatic = True,
+    deps = [
+        "//phtree",
+        "//phtree/benchmark",
+        "@gbenchmark//:benchmark",
+        "@spdlog",
+    ],
+)
+
+cc_binary(
+    name = "update_mm_d_benchmark",
+    testonly = True,
+    srcs = [
+        "update_mm_d_benchmark.cc",
+    ],
+    linkstatic = True,
+    deps = [
+        "//phtree",
+        "//phtree/benchmark",
+        "@gbenchmark//:benchmark",
+        "@spdlog",
+    ],
+)
+
+cc_binary(
+    name = "update_mm_box_d_benchmark",
+    testonly = True,
+    srcs = [
+        "update_mm_box_d_benchmark.cc",
     ],
     linkstatic = True,
     deps = [

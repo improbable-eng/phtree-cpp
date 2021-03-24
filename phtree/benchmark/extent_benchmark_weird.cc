@@ -13,11 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "logging.h"
 #include "phtree/benchmark/benchmark_util.h"
 #include "phtree/phtree.h"
 #include <benchmark/benchmark.h>
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/ansicolor_sink.h>
 #include <random>
 
 using namespace improbable;
@@ -67,11 +66,7 @@ IndexBenchmark<DIM>::IndexBenchmark(
 , cube_distribution_{0, GLOBAL_MAX}
 , points_(num_entities)
 , type_{type} {
-    auto console_sink = std::make_shared<spdlog::sinks::ansicolor_stdout_sink_mt>();
-    spdlog::set_default_logger(
-        std::make_shared<spdlog::logger>("", spdlog::sinks_init_list({console_sink})));
-    spdlog::set_level(spdlog::level::warn);
-
+    logging::SetupDefaultLogging();
     SetupWorld(state);
 }
 
@@ -84,7 +79,7 @@ void IndexBenchmark<DIM>::Benchmark(benchmark::State& state) {
 
 template <dimension_t DIM>
 void IndexBenchmark<DIM>::SetupWorld(benchmark::State& state) {
-    spdlog::info("Setting up world with {} entities and {} dimensions.", num_entities_, DIM);
+    logging::info("Setting up world with {} entities and {} dimensions.", num_entities_, DIM);
     CreatePointData<DIM>(points_, data_type_, num_entities_, 0, GLOBAL_MAX);
     for (int i = 0; i < num_entities_; ++i) {
         tree_.emplace(points_[i], i);
@@ -95,26 +90,23 @@ void IndexBenchmark<DIM>::SetupWorld(benchmark::State& state) {
     state.counters["result_rate"] = benchmark::Counter(0, benchmark::Counter::kIsRate);
     state.counters["avg_result_count"] = benchmark::Counter(0, benchmark::Counter::kAvgIterations);
 
-    spdlog::info("World setup complete.");
+    logging::info("World setup complete.");
 }
 
-template <
-    dimension_t DIM,
-    typename KEY = PhPoint<DIM>,
-    PhPreprocessor<DIM, KEY> PRE = PrePostNoOp<DIM>>
-class PhFilterBoxIntersection {
+template <dimension_t DIM, typename KEY = PhPoint<DIM>, typename SCALAR = scalar_64_t>
+class FilterBoxIntersection {
   public:
-    PhFilterBoxIntersection(const PhPoint<DIM>& minInclude, const PhPoint<DIM>& maxInclude)
-    : minIncludeBits{minInclude}, maxIncludeBits{maxInclude} {};
+    FilterBoxIntersection(const PhPoint<DIM>& min_include, const PhPoint<DIM>& max_include)
+    : min_include_bits{min_include}, max_include_bits{max_include} {};
 
     void set(const PhPointD<DIM>& minExclude, const PhPointD<DIM>& maxExclude) {
-        minIncludeBits = PRE(minExclude);
-        maxIncludeBits = PRE(maxExclude);
+        min_include_bits = PRE(minExclude);
+        max_include_bits = PRE(maxExclude);
     }
 
     [[nodiscard]] bool IsEntryValid(const PhPoint<DIM>& key, const int& value) const {
         for (int i = 0; i < DIM; ++i) {
-            if (key[i] < minIncludeBits[i] || key[i] > maxIncludeBits[i]) {
+            if (key[i] < min_include_bits[i] || key[i] > max_include_bits[i]) {
                 return false;
             }
         }
@@ -123,16 +115,15 @@ class PhFilterBoxIntersection {
 
     [[nodiscard]] bool IsNodeValid(const PhPoint<DIM>& prefix, int bits_to_ignore) const {
         // skip this for root node (bitsToIgnore == 64)
-        if (bits_to_ignore >= (MAX_BIT_WIDTH - 1)) {
+        if (bits_to_ignore >= (MAX_BIT_WIDTH<SCALAR> - 1)) {
             return true;
         }
-        bit_mask_t maskMin = MAX_MASK << bits_to_ignore;
-        bit_mask_t maskMax = ~maskMin;
+        bit_mask_t<SCALAR> mask_min = MAX_MASK<SCALAR> << bits_to_ignore;
+        bit_mask_t<SCALAR> mask_max = ~mask_min;
 
         for (size_t i = 0; i < prefix.size(); ++i) {
-            scalar_t minBits = prefix[i] & maskMin;
-            scalar_t maxBits = prefix[i] | maskMax;
-            if (maxBits < minIncludeBits[i] || minBits > maxIncludeBits[i]) {
+            if ((prefix[i] | mask_max) < min_include_bits[i] ||
+                (prefix[i] & mask_min) > max_include_bits[i]) {
                 return false;
             }
         }
@@ -140,17 +131,14 @@ class PhFilterBoxIntersection {
     }
 
   private:
-    const PhPoint<DIM> minIncludeBits;
-    const PhPoint<DIM> maxIncludeBits;
+    const PhPoint<DIM> min_include_bits;
+    const PhPoint<DIM> max_include_bits;
 };
 
-template <
-    dimension_t DIM,
-    typename KEY = PhPoint<DIM>,
-    PhPreprocessor<DIM, KEY> PRE = PrePostNoOp<DIM>>
-class PhFilterTrue {
+template <dimension_t DIM, typename KEY = PhPoint<DIM>>
+class FilterTrue {
   public:
-    PhFilterTrue(const PhPoint<DIM>& minInclude, const PhPoint<DIM>& maxInclude)
+    FilterTrue(const PhPoint<DIM>& minInclude, const PhPoint<DIM>& maxInclude)
     : minIncludeBits{minInclude}, maxIncludeBits{maxInclude} {};
 
     void set(const PhPointD<DIM>& minExclude, const PhPointD<DIM>& maxExclude) {
@@ -171,13 +159,10 @@ class PhFilterTrue {
     const PhPoint<DIM> maxIncludeBits;
 };
 
-template <
-    dimension_t DIM,
-    typename KEY = PhPoint<DIM>,
-    PhPreprocessor<DIM, KEY> PRE = PrePostNoOp<DIM>>
-class PhFilterTrue2 {
+template <dimension_t DIM, typename KEY = PhPoint<DIM>>
+class FilterTrue2 {
   public:
-    PhFilterTrue2() : minIncludeBits{}, maxIncludeBits{} {};
+    FilterTrue2() : minIncludeBits{}, maxIncludeBits{} {};
 
     [[nodiscard]] bool IsEntryValid(const PhPoint<DIM>& key, const int& value) const {
         return true;
@@ -193,7 +178,7 @@ class PhFilterTrue2 {
 };
 
 template <dimension_t DIM, typename T>
-struct PhFilterTrue3 {
+struct FilterTrue3 {
     [[nodiscard]] constexpr bool IsEntryValid(const PhPoint<DIM>& key, const T& value) const {
         return true;
     }
@@ -224,12 +209,12 @@ void IndexBenchmark<DIM>::QueryWorld(benchmark::State& state) {
     if (type_ == 0) {
         // PhPoint<DIM> min{-GLOBAL_MAX, -GLOBAL_MAX, -GLOBAL_MAX};
         // PhPoint<DIM> max{GLOBAL_MAX, GLOBAL_MAX, GLOBAL_MAX};
-        // PhFilterAABB<DIM, int> filter(min, max);
-        // PhFilterBoxIntersection<DIM> filter(min, max);
-        // PhFilterNoOp<DIM, int> filter;
-        // PhFilterTrue<DIM> filter(min, max);
-        // PhFilterTrue2<DIM> filter;
-        PhFilterTrue3<DIM, int> filter;
+        // FilterAABB<DIM, int> filter(min, max);
+        // FilterBoxIntersection<DIM> filter(min, max);
+        // FilterNoOp<DIM, int> filter;
+        // FilterTrue<DIM> filter(min, max);
+        // FilterTrue2<DIM> filter;
+        FilterTrue3<DIM, int> filter;
         auto q = tree_.begin(filter);
 
         //       auto q = tree_.begin();

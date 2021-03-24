@@ -11,8 +11,8 @@ http_archive(
 load("@bazel_skylib//lib:versions.bzl", "versions")
 
 versions.check(
-    minimum_bazel_version = "2.0.0",
-    maximum_bazel_version = "2.0.0",
+    minimum_bazel_version = "3.4.1",
+    maximum_bazel_version = "3.4.1",
 )
 
 # NOTE: We make third_party/ its own bazel workspace because it allows to run `bazel build ...` without
@@ -27,9 +27,9 @@ local_repository(
 http_archive(
     name = "spdlog",
     build_file = "@third_party//spdlog:BUILD",
-    sha256 = "160845266e94db1d4922ef755637f6901266731c4cb3b30b45bf41efa0e6ab70",
-    strip_prefix = "spdlog-1.3.1",
-    url = "https://github.com/gabime/spdlog/archive/v1.3.1.tar.gz",
+    sha256 = "b38e0bbef7faac2b82fed550a0c19b0d4e7f6737d5321d4fd8f216b80f8aee8a",
+    strip_prefix = "spdlog-1.5.0",
+    url = "https://github.com/gabime/spdlog/archive/v1.5.0.tar.gz",
 )
 
 http_archive(

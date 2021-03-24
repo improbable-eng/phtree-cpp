@@ -13,6 +13,11 @@ config_setting(
 )
 
 config_setting(
+    name = "macos_not_ios",
+    constraint_values = ["@bazel_tools//platforms:osx"],
+)
+
+config_setting(
     name = "windows",
     constraint_values = ["@bazel_tools//platforms:windows"],
 )
@@ -31,6 +36,11 @@ config_setting(
     values = {
         "compilation_mode": "opt",
     },
+)
+
+config_setting(
+    name = "windows-x86_64",
+    constraint_values = ["@bazel_tools//platforms:windows"],
 )
 
 # Buildifier

@@ -14,15 +14,17 @@
  * limitations under the License.
  */
 
-#ifndef PHTREE_V16_PHTREEV16_H
-#define PHTREE_V16_PHTREEV16_H
+#ifndef PHTREE_V16_PHTREE_V16_H
+#define PHTREE_V16_PHTREE_V16_H
 
-#include "debug_helper.h"
+#include "debug_helper_v16.h"
+#include "for_each.h"
+#include "for_each_hc.h"
+#include "iterator_full.h"
+#include "iterator_hc.h"
+#include "iterator_knn_hs.h"
+#include "iterator_simple.h"
 #include "node.h"
-#include "ph_iterator_full.h"
-#include "ph_iterator_hc.h"
-#include "ph_iterator_knn_hs.h"
-#include "ph_iterator_simple.h"
 
 namespace improbable::phtree::v16 {
 
@@ -43,21 +45,35 @@ namespace improbable::phtree::v16 {
  * - T. Zaeschke: "The PH-Tree Revisited", (2015)
  * - T. Zaeschke, M.C. Norrie: "Efficient Z-Ordered Traversal of Hypercube Indexes" (BTW 2017).
  *
- * @tparam T   Value type.
- * @tparam DIM Dimensionality. This is the number of dimensions of the space to index.
+ * @tparam T            Value type.
+ * @tparam DIM          Dimensionality. This is the number of dimensions of the space to index.
+ * @tparam CONVERT      A converter class with a 'pre()' and a 'post()' function. 'pre()' translates
+ *                      external KEYs into the internal PhPoint<DIM, SCALAR_BITS> type. 'post()'
+ *                      translates the PhPoint<DIM, SCALAR_BITS> back to the external KEY type.
  */
-template <
-    dimension_t DIM,
-    typename T,
-    typename KEY = PhPoint<DIM>,
-    PhPostprocessor<DIM, KEY> POST = PrePostNoOp<DIM>>
+template <dimension_t DIM, typename T, typename CONVERT = ConverterNoOp<DIM, scalar_64_t>>
 class PhTreeV16 {
     friend PhTreeDebugHelper;
+    using ScalarExternal = typename CONVERT::ScalarExternal;
+    using ScalarInternal = typename CONVERT::ScalarInternal;
+    using Key = typename CONVERT::KeyInternal;
+    using Node = Node<DIM, T, ScalarInternal>;
+    using Entry = Entry<DIM, T, ScalarInternal>;
 
   public:
     static_assert(!std::is_reference<T>::value, "Reference type value are not supported.");
+    static_assert(std::is_signed<ScalarInternal>::value, "ScalarInternal must be a signed type");
+    static_assert(
+        std::is_integral<ScalarInternal>::value, "ScalarInternal must be an integral type");
+    static_assert(
+        std::is_arithmetic<ScalarExternal>::value, "ScalarExternal must be an arithmetic type");
+    static_assert(DIM >= 1 && DIM <= 63, "This PH-Tree supports between 1 and 63 dimensions");
 
-    PhTreeV16() : num_entries_{0}, root_{0, MAX_BIT_WIDTH - 1} {}
+    PhTreeV16(CONVERT& converter = ConverterNoOp<DIM, ScalarInternal>())
+    : num_entries_{0}
+    , root_{0, MAX_BIT_WIDTH<ScalarInternal> - 1}
+    , the_end_{converter}
+    , converter_{converter} {}
 
     /*
      *  Attempts to build and insert a key and a value into the tree.
@@ -74,8 +90,58 @@ class PhTreeV16 {
      * entry instead of inserting a new one.
      */
     template <typename... _Args>
-    std::pair<T&, bool> emplace(const PhPoint<DIM>& key, _Args&&... __args) {
+    std::pair<T&, bool> emplace(const Key& key, _Args&&... __args) {
         auto* current_entry = &root_;
+        bool is_inserted = false;
+        while (current_entry->IsNode()) {
+            current_entry =
+                current_entry->GetNode().Emplace(is_inserted, key, std::forward<_Args>(__args)...);
+        }
+        num_entries_ += is_inserted;
+        return {current_entry->GetValue(), is_inserted};
+    }
+
+    /*
+     * The emplace_hint() method uses an iterator as hint for insertion.
+     * The hint is ignored if it is not useful or is equal to end().
+     *
+     * Iterators should normally not be used after the tree has been modified. As an exception to
+     * this rule, an iterator can be used as hint if it was previously used with at most one call
+     * to erase() and if no other modifications occurred.
+     * The following is valid:
+     *
+     * // Move value from key1 to key2
+     * auto iter = tree.find(key1);
+     * auto value = iter.second(); // The value may become invalid in erase()
+     * erase(iter);
+     * emplace_hint(iter, key2, value);  // the iterator can still be used as hint here
+     */
+    template <typename ITERATOR, typename... _Args>
+    std::pair<T&, bool> emplace_hint(const ITERATOR& iterator, const Key& key, _Args&&... __args) {
+        // This function can be used to insert a value close to a known value
+        // or close to a recently removed value. The hint can only be used if the new key is
+        // inside one of the nodes provided by the hint iterator.
+        // The idea behind using the 'parent' is twofold:
+        // - The 'parent' node is one level above the iterator position, it therefore is spatially
+        //   larger and has a better probability of containing the new position, allowing for
+        //   fast track emplace.
+        // - Using 'parent' allows a scenario where the iterator was previously used with
+        //   erase(iterator). This is safe because erase() will never erase the 'parent' node.
+
+        if (!iterator.GetParentNodeEntry()) {
+            // No hint available, use standard emplace()
+            return emplace(key, std::forward<_Args>(__args)...);
+        }
+
+        auto* parent_entry = iterator.GetParentNodeEntry();
+        if (NumberOfDivergingBits(key, parent_entry->GetKey()) >
+            parent_entry->GetNode().GetPostfixLen() + 1) {
+            // replace higher up in the tree
+            return emplace(key, std::forward<_Args>(__args)...);
+        }
+
+        // replace in node
+        auto* current_entry = parent_entry;
         bool is_inserted = false;
         while (current_entry->IsNode()) {
             current_entry =
@@ -91,7 +157,7 @@ class PhTreeV16 {
      * @return a pair consisting of the inserted element (or to the element that prevented the
      * insertion) and a bool denoting whether the insertion took place.
      */
-    std::pair<T&, bool> insert(const PhPoint<DIM>& key, const T& value) {
+    std::pair<T&, bool> insert(const Key& key, const T& value) {
         return emplace(key, value);
     }
 
@@ -99,7 +165,7 @@ class PhTreeV16 {
      * @return the value stored at position 'key'. If no such value exists, one is added to the tree
      * and returned.
      */
-    T& operator[](const PhPoint<DIM>& key) {
+    T& operator[](const Key& key) {
         return emplace(key).first;
     }
 
@@ -108,7 +174,7 @@ class PhTreeV16 {
      *
      * @return '1', if a value is associated with the provided key, otherwise '0'.
      */
-    size_t count(const PhPoint<DIM>& key) const {
+    size_t count(const Key& key) const {
         if (empty()) {
             return 0;
         }
@@ -127,20 +193,21 @@ class PhTreeV16 {
      * @return an iterator that points either to the associated value or to {@code end()} if the key
      * was found
      */
-    PhIteratorSimple<DIM, T, KEY, POST> find(const PhPoint<DIM>& key) const {
+    auto find(const Key& key) const {
         if (empty()) {
-            return {};
+            return IteratorSimple<T, CONVERT>(converter_);
         }
 
-        auto* current_entry = &root_;
+        const Entry* current_entry = &root_;
+        const Entry* current_node = nullptr;
+        const Entry* parent_node = nullptr;
         while (current_entry && current_entry->IsNode()) {
+            parent_node = current_node;
+            current_node = current_entry;
             current_entry = current_entry->GetNode().Find(key);
         }
 
-        if (current_entry) {
-            return PhIteratorSimple<DIM, T, KEY, POST>(current_entry);
-        }
-        return {};
+        return IteratorSimple<T, CONVERT>(current_entry, current_node, parent_node, converter_);
     }
 
     /*
@@ -148,9 +215,9 @@ class PhTreeV16 {
      *
      * @return '1' if a value was found, otherwise '0'.
      */
-    size_t erase(const PhPoint<DIM>& key) {
+    size_t erase(const Key& key) {
         auto* current_node = &root_.GetNode();
-        Node<DIM, T>* parent_node = nullptr;
+        Node* parent_node = nullptr;
         bool found = false;
         while (current_node) {
             auto* child_node = current_node->Erase(key, parent_node, found);
@@ -162,35 +229,109 @@ class PhTreeV16 {
     }
 
     /*
+     * See std::map::erase(). Removes any value at the given iterator location.
+     *
+     *
+     *
+     * WARNING
+     * While this is guaranteed to work correctly, only iterators returned from find()
+     * will result in erase(iterator) being faster than erase(key).
+     * Iterators returned from other functions may be optimized in a future version.
+     *
+     * @return '1' if a value was found, otherwise '0'.
+     */
+    template <typename ITERATOR>
+    size_t erase(const ITERATOR& iterator) {
+        if (iterator.Finished()) {
+            return 0;
+        }
+        if (!iterator.GetParentNodeEntry()) {
+            // Why may there be no parent?
+            // - we are in the root node
+            // - the iterator did not set this value
+            // In either case, we need to start searching from the top.
+            return erase(iterator.GetCurrentResult()->GetKey());
+        }
+        bool found = false;
+        assert(iterator.GetCurrentNodeEntry() && iterator.GetCurrentNodeEntry()->IsNode());
+        iterator.GetCurrentNodeEntry()->GetNode().Erase(
+            iterator.GetCurrentResult()->GetKey(),
+            &iterator.GetParentNodeEntry()->GetNode(),
+            found);
+
+        num_entries_ -= found;
+        return found;
+    }
+
+    /*
      * Iterates over all entries in the tree. The optional filter allows filtering entries and nodes
      * (=sub-trees) before returning / traversing them. By default all entries are returned. Filter
-     * functions must implement the same signature as the default 'PhFilterNoOp'.
+     * functions must implement the same signature as the default 'FilterNoOp'.
      *
-     * @return an iterator over all (filtered) entries in the tree,
+     * @param callback The callback function to be called for every entry that matches the query.
+     * The callback requires the following signature: callback(const PhPointD<DIM> &, const T &)
+     * @param filter An optional filter function. The filter function allows filtering entries and
+     * sub-nodes before they are returned or traversed. Any filter function must follow the
+     * signature of the default 'FilterNoOp`.
      */
-    template <typename FILTER = PhFilterNoOp<DIM, T>>
-    auto begin(FILTER filter = FILTER()) const {
-        return PhIteratorFull<DIM, T, KEY, POST, FILTER>(root_, filter);
+    template <typename CALLBACK_FN, typename FILTER = FilterNoOp>
+    void for_each(CALLBACK_FN& callback, FILTER filter = FILTER()) const {
+        ForEach<T, CONVERT, CALLBACK_FN, FILTER>(converter_, callback, filter).run(root_);
     }
 
     /*
      * Performs a rectangular window query. The parameters are the min and max keys which
      * contain the minimum respectively the maximum keys in every dimension.
-     * @param min Minimum values
-     * @param max Maximum values
+     * @param query_box The query window.
+     * @param callback The callback function to be called for every entry that matches the query.
+     * The callback requires the following signature: callback(const PhPoint<DIM> &, const T &)
      * @param filter An optional filter function. The filter function allows filtering entries and
      * sub-nodes before they are returned or traversed. Any filter function must follow the
-     * signature of the default 'PhFilterNoOp`.
+     * signature of the default 'FilterNoOp`.
+     */
+    template <typename CALLBACK_FN, typename FILTER = FilterNoOp>
+    void for_each(
+        const PhBox<DIM, ScalarInternal>& query_box,
+        CALLBACK_FN& callback,
+        FILTER filter = FILTER()) const {
+        ForEachHC<T, CONVERT, CALLBACK_FN, FILTER>(
+            query_box.min(), query_box.max(), converter_, callback, filter)
+            .run(root_);
+    }
+
+    /*
+     * Iterates over all entries in the tree. The optional filter allows filtering entries and nodes
+     * (=sub-trees) before returning / traversing them. By default all entries are returned. Filter
+     * functions must implement the same signature as the default 'FilterNoOp'.
+     *
+     * @return an iterator over all (filtered) entries in the tree,
+     */
+    template <typename FILTER = FilterNoOp>
+    auto begin(FILTER filter = FILTER()) const {
+        return IteratorFull<T, CONVERT, FILTER>(root_, converter_, filter);
+    }
+
+    /*
+     * Performs a rectangular window query. The parameters are the min and max keys which
+     * contain the minimum respectively the maximum keys in every dimension.
+     * @param query_box The query window.
+     * @param filter An optional filter function. The filter function allows filtering entries and
+     * sub-nodes before they are returned or traversed. Any filter function must follow the
+     * signature of the default 'FilterNoOp`.
      * @return Result iterator.
      */
-    template <typename FILTER = PhFilterNoOp<DIM, T>>
-    auto begin_query(
-        const PhPoint<DIM>& min, const PhPoint<DIM>& max, FILTER filter = FILTER()) const {
-        return PhIteratorHC<DIM, T, KEY, POST, FILTER>(root_, min, max, filter);
+    template <typename FILTER = FilterNoOp>
+    auto begin_query(const PhBox<DIM, ScalarInternal>& query_box, FILTER filter = FILTER()) const {
+        return IteratorHC<T, CONVERT, FILTER>(
+            root_, query_box.min(), query_box.max(), converter_, filter);
     }
 
     /*
      * Locate nearest neighbors for a given point in space.
+     *
+     * Example for distance function: auto fn = DistanceEuclidean<DIM>
+     * auto iter = tree.begin_knn_query<DistanceEuclidean<DIM>>
+     *
      * @param min_results number of entries to be returned. More entries may or may not be returned
      * when several entries have the same distance.
      * @param center center point
@@ -199,16 +340,14 @@ class PhTreeV16 {
      * calculated.
      * @return Result iterator.
      */
-    template <
-        typename DISTANCE = PhDistanceLongEuclidean<DIM>,
-        typename FILTER = PhFilterNoOp<DIM, T>>
+    template <typename DISTANCE, typename FILTER = FilterNoOp>
     auto begin_knn_query(
         size_t min_results,
-        const PhPoint<DIM>& center,
+        const Key& center,
         DISTANCE distance_function = DISTANCE(),
         FILTER filter = FILTER()) const {
-        return PhIteratorKnnHS<DIM, T, KEY, POST, DISTANCE, FILTER>(
-            root_, min_results, center, distance_function, filter);
+        return IteratorKnnHS<T, CONVERT, DISTANCE, FILTER>(
+            root_, min_results, center, converter_, distance_function, filter);
     }
 
     /*
@@ -223,7 +362,7 @@ class PhTreeV16 {
      */
     void clear() {
         num_entries_ = 0;
-        root_ = PhEntry<DIM, T>(0, MAX_BIT_WIDTH - 1);
+        root_ = Entry(0, MAX_BIT_WIDTH<ScalarInternal> - 1);
     }
 
     /*
@@ -252,10 +391,11 @@ class PhTreeV16 {
     size_t num_entries_;
     // Contract: root_ contains a Node with 0 or more entries (the root node is the only Node
     // that is allowed to have less than two entries.
-    PhEntry<DIM, T> root_;
-    PhIteratorEnd<DIM, T, KEY, POST> the_end_;
+    Entry root_;
+    IteratorEnd<T, CONVERT> the_end_;
+    CONVERT converter_;
 };
 
 }  // namespace improbable::phtree::v16
 
-#endif  // PHTREE_V16_PHTREEV16_H
+#endif  // PHTREE_V16_PHTREE_V16_H
