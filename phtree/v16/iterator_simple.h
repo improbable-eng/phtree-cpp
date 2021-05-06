@@ -17,8 +17,8 @@
 #ifndef PHTREE_V16_ITERATOR_SIMPLE_H
 #define PHTREE_V16_ITERATOR_SIMPLE_H
 
-#include "iterator_base.h"
 #include "../common/common.h"
+#include "iterator_base.h"
 
 namespace improbable::phtree::v16 {
 
@@ -26,7 +26,7 @@ template <typename T, typename CONVERT>
 class IteratorSimple : public IteratorBase<T, CONVERT> {
     static constexpr dimension_t DIM = CONVERT::DimInternal;
     using SCALAR = typename CONVERT::ScalarInternal;
-    using Entry = typename IteratorBase<T, CONVERT>::Entry;
+    using EntryT = typename IteratorBase<T, CONVERT>::EntryT;
 
   public:
     explicit IteratorSimple(const CONVERT& converter) : IteratorBase<T, CONVERT>(converter) {
@@ -34,9 +34,9 @@ class IteratorSimple : public IteratorBase<T, CONVERT> {
     }
 
     explicit IteratorSimple(
-        const Entry* current_result,
-        const Entry* current_node,
-        const Entry* parent_node,
+        const EntryT* current_result,
+        const EntryT* current_node,
+        const EntryT* parent_node,
         CONVERT converter)
     : IteratorBase<T, CONVERT>(converter) {
         if (current_result) {

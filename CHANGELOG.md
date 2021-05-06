@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 - Nothing yet.
 
+## [1.0.1] - 2021-05-06
+### Changed
+- replaced compilation flag `-fpermissive` with `-Werror`, and fixed all warnings/errors, see issue #10
 
 ## [1.0.0] - 2021-03-23
 ### Added
@@ -47,6 +50,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Nothing.
 
 
-[Unreleased]: https://github.com/improbable-eng/phtree-cpp/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/improbable-eng/phtree-cpp/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/improbable-eng/phtree-cpp/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/improbable-eng/phtree-cpp/compare/v0.1.0...v1.0.0
 [0.2.0]: https://github.com/improbable-eng/phtree-cpp/compare/v0.1.0...v0.2.0

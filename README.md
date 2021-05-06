@@ -547,7 +547,6 @@ cmake --build .
 
 The PH-Tree is discussed in the follwoing publications and reports:   
 
-*
 - T. Zaeschke, C. Zimmerli, M.C. Norrie:
   "The PH-Tree -- A Space-Efficient Storage Structure and Multi-Dimensional Index", (SIGMOD 2014)
 - T. Zaeschke: "The PH-Tree Revisited", (2015)
