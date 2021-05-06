@@ -17,8 +17,8 @@
 #ifndef PHTREE_V16_ITERATOR_HC_H
 #define PHTREE_V16_ITERATOR_HC_H
 
-#include "iterator_simple.h"
 #include "../common/common.h"
+#include "iterator_simple.h"
 
 namespace improbable::phtree::v16 {
 
@@ -46,11 +46,11 @@ class IteratorHC : public IteratorBase<T, CONVERT, FILTER> {
     static constexpr dimension_t DIM = CONVERT::DimInternal;
     using KeyInternal = typename CONVERT::KeyInternal;
     using SCALAR = typename CONVERT::ScalarInternal;
-    using Entry = typename IteratorBase<T, CONVERT, FILTER>::Entry;
+    using EntryT = typename IteratorBase<T, CONVERT, FILTER>::EntryT;
 
   public:
     IteratorHC(
-        const Entry& root,
+        const EntryT& root,
         const KeyInternal& range_min,
         const KeyInternal& range_max,
         const CONVERT& converter,
@@ -79,7 +79,7 @@ class IteratorHC : public IteratorBase<T, CONVERT, FILTER> {
         assert(!this->Finished());
         while (!IsEmpty()) {
             auto* p = &Peek();
-            const Entry* current_result = nullptr;
+            const EntryT* current_result = nullptr;
             while ((current_result = p->Increment(range_min_, range_max_))) {
                 if (this->ApplyFilter(*current_result)) {
                     if (current_result->IsNode()) {
@@ -97,7 +97,7 @@ class IteratorHC : public IteratorBase<T, CONVERT, FILTER> {
         this->SetFinished();
     }
 
-    auto& PrepareAndPush(const Entry& entry) {
+    auto& PrepareAndPush(const EntryT& entry) {
         assert(stack_size_ < stack_.size() - 1);
         auto& ni = stack_[stack_size_++];
         ni.init(range_min_, range_max_, entry.GetNode(), entry.GetKey());
@@ -127,14 +127,14 @@ class IteratorHC : public IteratorBase<T, CONVERT, FILTER> {
 namespace {
 template <dimension_t DIM, typename T, typename SCALAR>
 class NodeIterator {
-    using Key = PhPoint<DIM, SCALAR>;
-    using Entry = Entry<DIM, T, SCALAR>;
-    using Node = Node<DIM, T, SCALAR>;
+    using KeyT = PhPoint<DIM, SCALAR>;
+    using EntryT = Entry<DIM, T, SCALAR>;
+    using NodeT = Node<DIM, T, SCALAR>;
 
   public:
     NodeIterator() : iter_{}, node_{nullptr}, mask_lower_{0}, mask_upper_(0) {}
 
-    void init(const Key& range_min, const Key& range_max, const Node& node, const Key& prefix) {
+    void init(const KeyT& range_min, const KeyT& range_max, const NodeT& node, const KeyT& prefix) {
         node_ = &node;
         CalcLimits(node.GetPostfixLen(), range_min, range_max, prefix);
         iter_ = node.Entries().lower_bound(mask_lower_);
@@ -144,7 +144,7 @@ class NodeIterator {
      * Advances the cursor.
      * @return TRUE iff a matching element was found.
      */
-    const Entry* Increment(const Key& range_min, const Key& range_max) {
+    const EntryT* Increment(const KeyT& range_min, const KeyT& range_max) {
         while (iter_ != node_->Entries().end() && iter_->first <= mask_upper_) {
             if (IsPosValid(iter_->first)) {
                 const auto* be = &iter_->second;
@@ -158,7 +158,7 @@ class NodeIterator {
         return nullptr;
     }
 
-    bool CheckEntry(const Entry& candidate, const Key& range_min, const Key& range_max) const {
+    bool CheckEntry(const EntryT& candidate, const KeyT& range_min, const KeyT& range_max) const {
         if (candidate.IsValue()) {
             return IsInRange(candidate.GetKey(), range_min, range_max);
         }
@@ -189,7 +189,7 @@ class NodeIterator {
     }
 
     void CalcLimits(
-        bit_width_t postfix_len, const Key& range_min, const Key& range_max, const Key& prefix) {
+        bit_width_t postfix_len, const KeyT& range_min, const KeyT& range_max, const KeyT& prefix) {
         // create limits for the local node. there is a lower and an upper limit. Each limit
         // consists of a series of DIM bit, one for each dimension.
         // For the lower limit, a '1' indicates that the 'lower' half of this dimension does
@@ -253,8 +253,8 @@ class NodeIterator {
     }
 
   private:
-    EntryIteratorC<DIM, Entry> iter_;
-    const Node* node_;
+    EntryIteratorC<DIM, EntryT> iter_;
+    const NodeT* node_;
     hc_pos_t mask_lower_;
     hc_pos_t mask_upper_;
 };

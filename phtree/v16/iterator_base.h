@@ -17,8 +17,8 @@
 #ifndef PHTREE_V16_ITERATOR_BASE_H
 #define PHTREE_V16_ITERATOR_BASE_H
 
-#include "entry.h"
 #include "../common/common.h"
+#include "entry.h"
 
 namespace improbable::phtree::v16 {
 
@@ -34,7 +34,7 @@ class IteratorBase {
     static constexpr dimension_t DIM = CONVERT::DimInternal;
     using KeyInternal = typename CONVERT::KeyInternal;
     using SCALAR = typename CONVERT::ScalarInternal;
-    using Entry = Entry<DIM, T, SCALAR>;
+    using EntryT = Entry<DIM, T, SCALAR>;
     friend PhTreeV16<DIM, T, CONVERT>;
 
   public:
@@ -96,7 +96,7 @@ class IteratorBase {
         return is_finished_;
     }
 
-    const Entry* GetCurrentResult() const {
+    const EntryT* GetCurrentResult() const {
         return current_result_;
     }
 
@@ -106,22 +106,22 @@ class IteratorBase {
         current_result_ = nullptr;
     }
 
-    [[nodiscard]] bool ApplyFilter(const Entry& entry) const {
+    [[nodiscard]] bool ApplyFilter(const EntryT& entry) const {
         return entry.IsNode()
             ? filter_.IsNodeValid(entry.GetKey(), entry.GetNode().GetPostfixLen() + 1)
             : filter_.IsEntryValid(entry.GetKey(), entry.GetValue());
     }
 
-    void SetCurrentResult(const Entry* current_result) {
+    void SetCurrentResult(const EntryT* current_result) {
         current_result_ = current_result;
     }
 
-    void SetCurrentNodeEntry(const Entry* current_node) {
+    void SetCurrentNodeEntry(const EntryT* current_node) {
         assert(!current_node || current_node->IsNode());
         current_node_ = current_node;
     }
 
-    void SetParentNodeEntry(const Entry* parent_node) {
+    void SetParentNodeEntry(const EntryT* parent_node) {
         assert(!parent_node || parent_node->IsNode());
         parent_node_ = parent_node;
     }
@@ -135,17 +135,17 @@ class IteratorBase {
      * The parent entry contains the parent node. The parent node is the node ABOVE the current node
      * which contains the current entry.
      */
-    const Entry* GetCurrentNodeEntry() const {
+    const EntryT* GetCurrentNodeEntry() const {
         return current_node_;
     }
 
-    const Entry* GetParentNodeEntry() const {
+    const EntryT* GetParentNodeEntry() const {
         return parent_node_;
     }
 
-    const Entry* current_result_;
-    const Entry* current_node_;
-    const Entry* parent_node_;
+    const EntryT* current_result_;
+    const EntryT* current_node_;
+    const EntryT* parent_node_;
     bool is_finished_;
     const CONVERT& converter_;
     FILTER filter_;

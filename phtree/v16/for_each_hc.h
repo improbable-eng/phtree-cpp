@@ -17,8 +17,8 @@
 #ifndef PHTREE_V16_FOR_EACH_HC_H
 #define PHTREE_V16_FOR_EACH_HC_H
 
-#include "iterator_simple.h"
 #include "../common/common.h"
+#include "iterator_simple.h"
 
 namespace improbable::phtree::v16 {
 
@@ -39,8 +39,8 @@ class ForEachHC {
     using KeyExternal = typename CONVERT::KeyExternal;
     using KeyInternal = typename CONVERT::KeyInternal;
     using SCALAR = typename CONVERT::ScalarInternal;
-    using Entry = Entry<DIM, T, SCALAR>;
-    using Node = Node<DIM, T, SCALAR>;
+    using EntryT = Entry<DIM, T, SCALAR>;
+    using NodeT = Node<DIM, T, SCALAR>;
 
   public:
     ForEachHC(
@@ -55,13 +55,13 @@ class ForEachHC {
     , callback_{callback}
     , filter_(std::move(filter)) {}
 
-    void run(const Entry& root) {
+    void run(const EntryT& root) {
         assert(root.IsNode());
         TraverseNode(root.GetKey(), root.GetNode());
     }
 
   private:
-    void TraverseNode(const KeyInternal& key, const Node& node) {
+    void TraverseNode(const KeyInternal& key, const NodeT& node) {
         hc_pos_t mask_lower = 0;
         hc_pos_t mask_upper = 0;
         CalcLimits(node.GetPostfixLen(), key, mask_lower, mask_upper);
@@ -90,7 +90,7 @@ class ForEachHC {
         }
     }
 
-    bool CheckNode(const KeyInternal& key, const Node& node) const {
+    bool CheckNode(const KeyInternal& key, const NodeT& node) const {
         // Check if the node overlaps with the query box.
         // An infix with len=0 implies that at least part of the child node overlaps with the query,
         // otherwise the bit mask checking would have returned 'false'.
@@ -108,7 +108,7 @@ class ForEachHC {
         return ApplyFilter(key, node);
     }
 
-    [[nodiscard]] bool ApplyFilter(const KeyInternal& key, const Node& node) const {
+    [[nodiscard]] bool ApplyFilter(const KeyInternal& key, const NodeT& node) const {
         return filter_.IsNodeValid(key, node.GetPostfixLen() + 1);
     }
 

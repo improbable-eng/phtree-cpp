@@ -17,9 +17,9 @@
 #ifndef PHTREE_V16_DEBUG_HELPER_H
 #define PHTREE_V16_DEBUG_HELPER_H
 
-#include "node.h"
 #include "../common/common.h"
 #include "../common/debug_helper.h"
+#include "node.h"
 #include "phtree_v16.h"
 #include <string>
 
@@ -30,12 +30,11 @@ class PhTreeV16;
 
 template <dimension_t DIM, typename T, typename SCALAR>
 class DebugHelperV16 : public PhTreeDebugHelper::DebugHelper {
-    using Key = PhPoint<DIM, SCALAR>;
-    using Node = Node<DIM, T, SCALAR>;
-    using Entry = Entry<DIM, T, SCALAR>;
+    using KeyT = PhPoint<DIM, SCALAR>;
+    using NodeT = Node<DIM, T, SCALAR>;
 
   public:
-    DebugHelperV16(const Node& root, size_t size) : root_{root}, size_{size} {}
+    DebugHelperV16(const NodeT& root, size_t size) : root_{root}, size_{size} {}
 
     /*
      * Depending on the detail parameter this returns:
@@ -58,7 +57,7 @@ class DebugHelperV16 : public PhTreeDebugHelper::DebugHelper {
             ToStringPlain(os, root_);
             break;
         case Enum::tree:
-            ToStringTree(os, 0, root_, Key(), true);
+            ToStringTree(os, 0, root_, KeyT{}, true);
             break;
         }
         return os.str();
@@ -83,9 +82,9 @@ class DebugHelperV16 : public PhTreeDebugHelper::DebugHelper {
     }
 
   private:
-    void ToStringPlain(std::ostringstream& os, const Node& node) const {
+    void ToStringPlain(std::ostringstream& os, const NodeT& node) const {
         for (auto& it : node.Entries()) {
-            const Entry& o = it.second;
+            const auto& o = it.second;
             // inner node?
             if (o.IsNode()) {
                 ToStringPlain(os, o.GetNode());
@@ -99,8 +98,8 @@ class DebugHelperV16 : public PhTreeDebugHelper::DebugHelper {
     void ToStringTree(
         std::ostringstream& sb,
         bit_width_t current_depth,
-        const Node& node,
-        const Key& prefix,
+        const NodeT& node,
+        const KeyT& prefix,
         bool printValue) const {
         std::string ind = "*";
         for (bit_width_t i = 0; i < current_depth; ++i) {
@@ -142,7 +141,7 @@ class DebugHelperV16 : public PhTreeDebugHelper::DebugHelper {
         }
     }
 
-    const Node& root_;
+    const NodeT& root_;
     const size_t size_;
 };
 }  // namespace improbable::phtree::v16

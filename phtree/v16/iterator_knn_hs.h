@@ -17,8 +17,8 @@
 #ifndef PHTREE_V16_QUERY_KNN_HS_H
 #define PHTREE_V16_QUERY_KNN_HS_H
 
-#include "iterator_base.h"
 #include "../common/common.h"
+#include "iterator_base.h"
 #include <queue>
 
 namespace improbable::phtree::v16 {
@@ -49,12 +49,12 @@ class IteratorKnnHS : public IteratorBase<T, CONVERT, FILTER> {
     using KeyExternal = typename CONVERT::KeyExternal;
     using KeyInternal = typename CONVERT::KeyInternal;
     using SCALAR = typename CONVERT::ScalarInternal;
-    using Entry = typename IteratorBase<T, CONVERT, FILTER>::Entry;
-    using EntryDist = EntryDist<DIM, T, SCALAR>;
+    using EntryT = typename IteratorBase<T, CONVERT, FILTER>::EntryT;
+    using EntryDistT = EntryDist<DIM, T, SCALAR>;
 
   public:
     explicit IteratorKnnHS(
-        const Entry& root,
+        const EntryT& root,
         size_t min_results,
         const KeyInternal& center,
         const CONVERT& converter,
@@ -152,7 +152,7 @@ class IteratorKnnHS : public IteratorBase<T, CONVERT, FILTER> {
     // center after post processing == the external representation
     const KeyExternal center_post_;
     double current_distance_;
-    std::priority_queue<EntryDist, std::vector<EntryDist>, CompareEntryDistByDistance<EntryDist>>
+    std::priority_queue<EntryDistT, std::vector<EntryDistT>, CompareEntryDistByDistance<EntryDistT>>
         queue_;
     int num_found_results_;
     int num_requested_results_;
