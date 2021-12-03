@@ -38,7 +38,7 @@ int main() {
     }
     std::cout << std::endl;
 
-    std::cout << "All points in range:" << p1 << "/" << p2 << std::endl;
+    std::cout << "All points in range:" << p2 << "/" << p4 << std::endl;
     for (auto it = tree.begin_query({p2, p4}); it != tree.end(); ++it) {
         std::cout << "    " << it.second() << " -> " << it.first() << std::endl;
     }
