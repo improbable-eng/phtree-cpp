@@ -150,6 +150,80 @@ class FilterAABB {
     const CONVERTER converter_;
 };
 
+
+/*
+ * The sphere filter can be used to query a point tree for a sphere.
+ */
+template <
+    dimension_t DIM,
+    typename SCALAR_EXTERNAL,
+    typename SCALAR_INTERNAL,
+    typename CONVERTER = ScalarConverterIEEE>
+class FilterSphere {
+    using KeyExternal = PhPoint<DIM, SCALAR_EXTERNAL>;
+    using KeyInternal = PhPoint<DIM, SCALAR_INTERNAL>;
+
+  public:
+    FilterSphere(
+        const KeyExternal& center,
+        const SCALAR_EXTERNAL& radius,
+        CONVERTER converter = CONVERTER())
+    : center_{center}
+    , radius_{radius}
+    , converter_{converter} {};
+
+    template <typename T>
+    [[nodiscard]] bool IsEntryValid(const KeyInternal& key, const T& value) const {
+        SCALAR_EXTERNAL sum2 = 0;
+        for (dimension_t i = 0; i < DIM; ++i) {
+            SCALAR_EXTERNAL d2 = converter_.post(key[i]) - center_[i];
+            sum2 += d2 * d2;
+        }
+        return sum2 <= radius_ * radius_;
+    }
+
+    /*
+     * Calculate whether AABB encompassing all possible points in the node intersects with the
+     * sphere.
+     */
+    [[nodiscard]] bool IsNodeValid(const KeyInternal& prefix, int bits_to_ignore) const {
+        // we always want to traverse the root node (bits_to_ignore == 64)
+
+        if (bits_to_ignore >= (MAX_BIT_WIDTH<SCALAR_INTERNAL> - 1)) {
+            return true;
+        }
+
+        SCALAR_INTERNAL node_min_bits = MAX_MASK<SCALAR_INTERNAL> << bits_to_ignore;
+        SCALAR_INTERNAL node_max_bits = ~node_min_bits;
+
+        SCALAR_EXTERNAL sum2 = 0;
+        for (size_t i = 0; i < prefix.size(); ++i) {
+            // calculate distance of lower and upper bound to center
+            SCALAR_EXTERNAL dist_lo = converter_.post(prefix[i] & node_min_bits) - center_[i];
+            SCALAR_EXTERNAL dist_hi = converter_.post(prefix[i] | node_max_bits) - center_[i];
+
+            // default case: distance for dimension is zero if center is between high and low value,
+            // i.e., dist_lo and dist_hi have differing sign
+            SCALAR_EXTERNAL min_dist = 0;
+            if (dist_lo > 0 && dist_hi > 0) {
+                // lower bound is closer to center
+                min_dist = dist_lo;
+            } if (dist_lo < 0 && dist_hi < 0) {
+                // upper bound is closer to center
+                min_dist = dist_hi;
+            }
+
+            sum2 += min_dist * min_dist;
+        }
+        return sum2 <= radius_ * radius_;
+    }
+
+  private:
+    const KeyExternal center_;
+    const SCALAR_EXTERNAL radius_;
+    const CONVERTER converter_;
+};
+
 }  // namespace improbable::phtree
 
 #endif  // PHTREE_COMMON_FILTERS_H
