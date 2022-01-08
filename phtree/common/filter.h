@@ -150,6 +150,132 @@ class FilterAABB {
     const CONVERTER converter_;
 };
 
+/*
+ * The paraboloid filter can be used to query a point tree for an axis-aligned paraboloid.
+ * This is useful for, e.g., doing a range check for a projectile with a fixed launch speed.
+ * Also see https://en.wikipedia.org/wiki/paraboloid_of_safety for this application.
+ */
+template <
+    typename CONVERTER = ConverterIEEE<3>,
+    typename DISTANCE = DistanceEuclidean<3>>
+class FilterParaboloid {
+    using KeyExternal = typename CONVERTER::KeyExternal;
+    using KeyInternal = typename CONVERTER::KeyInternal;
+    using ScalarInternal = typename CONVERTER::ScalarInternal;
+    using ScalarExternal = typename CONVERTER::ScalarExternal;
+
+  public:
+    /*
+     * @param axis The axis along which the paraboloid is aligned.
+     * @param vertex The vertex of the paraboloid.
+     * @param scale_factor Scales the paraboloid along the axis. A positive scale factor
+     * means that the paraboloid opens in the positive direction of the axis, a negative
+     * scale factor means the reverse.
+     */
+    FilterParaboloid(
+        const size_t axis,
+        const KeyExternal& vertex,
+        const ScalarExternal& scale_factor,
+        CONVERTER converter = CONVERTER(),
+        DISTANCE distance_function = DISTANCE())
+    : axis_{axis}
+    , vertex_external_{vertex}
+    , vertex_internal_{converter.pre(vertex)}
+    , scale_factor_{scale_factor}
+    , converter_{converter}
+    , distance_function_{distance_function} {};
+
+    template <typename T>
+    [[nodiscard]] bool IsEntryValid(const KeyInternal& key, const T& value) const {
+        if (
+            (key[axis_] > vertex_internal_[axis_] && scale_factor_ < 0) ||
+            (key[axis_] < vertex_internal_[axis_] && scale_factor_ > 0)) {
+            // point is on the side of the vertex where the paraboloid does not exist
+            return false;
+        }
+
+        KeyExternal point = converter_.post(key);
+
+        // radius of paraboloid at axis offset of point
+        ScalarExternal diff_axis = point[axis_] - vertex_external_[axis_];
+        ScalarExternal radius = sqrt(diff_axis / scale_factor_);
+
+        // point projected onto axis of paraboloid
+        KeyExternal projected = vertex_external_;
+        projected[axis_] = point[axis_];
+
+        return distance_function_(projected, point) <= radius;
+    }
+
+    /*
+     * Calculate whether AABB encompassing all possible points in the node intersects with the
+     * paraboloid.
+     */
+    [[nodiscard]] bool IsNodeValid(const KeyInternal& prefix, int bits_to_ignore) const {
+        // we always want to traverse the root node (bits_to_ignore == 64)
+
+        if (bits_to_ignore >= (MAX_BIT_WIDTH<ScalarInternal> - 1)) {
+            return true;
+        }
+
+        ScalarInternal node_min_bits = MAX_MASK<ScalarInternal> << bits_to_ignore;
+        ScalarInternal node_max_bits = ~node_min_bits;
+
+        // coordinate on axis that is inside the paraboloid and furthest away from vertex
+        ScalarInternal coord_max_vertex_dist;
+        if (scale_factor_ < 0) {
+            // lower bound is furthest from the vertex
+            coord_max_vertex_dist = prefix[axis_] & node_min_bits;
+            if (coord_max_vertex_dist > vertex_internal_[axis_]) {
+                // point is on the side of the vertex where the paraboloid does not exist
+                return false;
+            }
+        } else {
+            // upper bound is furthest from the vertex
+            coord_max_vertex_dist = prefix[axis_] | node_max_bits;
+            if (coord_max_vertex_dist < vertex_internal_[axis_]) {
+                // point is on the side of the vertex where the paraboloid does not exist
+                return false;
+            }
+        }
+
+        KeyInternal closest_to_axis;
+        for (size_t i = 0; i < prefix.size(); ++i) {
+            if (i == axis_) {
+                closest_to_axis[i] = coord_max_vertex_dist;
+            } else {
+                // calculate lower and upper bound for dimension for given node
+                ScalarInternal lo = prefix[i] & node_min_bits;
+                ScalarInternal hi = prefix[i] | node_max_bits;
+
+                // choose value closest to vertex for dimension
+                closest_to_axis[i] = std::clamp(vertex_internal_[i], lo, hi);
+            }
+        }
+
+        // closest_to_axis projected onto axis of paraboloid
+        KeyExternal projected = vertex_internal_;
+        projected[axis_] = coord_max_vertex_dist;
+
+        KeyExternal closest_point = converter_.post(closest_to_axis);
+        KeyExternal projected_point = converter_.post(projected);
+
+        // radius of paraboloid at axis offset of closest_to_axis
+        ScalarExternal diff_axis = closest_point[axis_] - vertex_external_[axis_];
+        ScalarExternal radius = sqrt(diff_axis / scale_factor_);
+
+        return distance_function_(projected_point, closest_point) <= radius;
+    }
+
+  private:
+    const size_t axis_;
+    const KeyExternal vertex_external_;
+    const KeyExternal vertex_internal_;
+    const ScalarExternal scale_factor_;
+    const CONVERTER converter_;
+    const DISTANCE distance_function_;
+};
+
 }  // namespace improbable::phtree
 
 #endif  // PHTREE_COMMON_FILTERS_H
