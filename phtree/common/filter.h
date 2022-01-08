@@ -23,6 +23,7 @@
 #include "flat_array_map.h"
 #include "flat_sparse_map.h"
 #include "tree_stats.h"
+#include <algorithm>
 #include <cassert>
 #include <climits>
 #include <cmath>
@@ -198,16 +199,11 @@ class FilterSphere {
         KeyInternal closest_in_bounds;
         for (size_t i = 0; i < prefix.size(); ++i) {
             // calculate lower and upper bound for dimension for given node
-            ScalarInternal lower_bound = prefix[i] & node_min_bits;
-            ScalarInternal upper_bound = prefix[i] | node_max_bits;
+            ScalarInternal lo = prefix[i] & node_min_bits;
+            ScalarInternal hi = prefix[i] | node_max_bits;
 
             // choose value closest to center for dimension
-            closest_in_bounds[i] = center_internal_[i];
-            if (closest_in_bounds[i] < lower_bound) {
-                closest_in_bounds[i] = lower_bound;
-            } else if (closest_in_bounds[i] > upper_bound) {
-                closest_in_bounds[i] = upper_bound;
-            }
+            closest_in_bounds[i] = std::clamp(center_internal_[i], lo, hi);
         }
 
         KeyExternal closest_point = converter_.post(closest_in_bounds);
