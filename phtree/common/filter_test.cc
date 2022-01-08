@@ -20,17 +20,6 @@
 
 using namespace improbable::phtree;
 
-class ConverterNoOpScalar {
-  public:
-    static scalar_64_t pre(double value) {
-        return value;
-    }
-
-    static double post(scalar_64_t value) {
-        return value;
-    }
-};
-
 TEST(PhTreeFilterTest, FilterSphereTest) {
     FilterSphere<ConverterNoOp<2, scalar_64_t>, DistanceEuclidean<2>> filter{{5, 3}, 5};
     // root is always valid
