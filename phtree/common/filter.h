@@ -155,31 +155,30 @@ class FilterAABB {
  * The sphere filter can be used to query a point tree for a sphere.
  */
 template <
-    dimension_t DIM,
-    typename SCALAR_EXTERNAL,
-    typename SCALAR_INTERNAL,
-    typename CONVERTER = ScalarConverterIEEE>
+    typename CONVERTER = ConverterIEEE<3>,
+    typename DISTANCE = DistanceEuclidean<3>>
 class FilterSphere {
-    using KeyExternal = PhPoint<DIM, SCALAR_EXTERNAL>;
-    using KeyInternal = PhPoint<DIM, SCALAR_INTERNAL>;
+    using KeyExternal = typename CONVERTER::KeyExternal;
+    using KeyInternal = typename CONVERTER::KeyInternal;
+    using ScalarInternal = typename CONVERTER::ScalarInternal;
+    using ScalarExternal = typename CONVERTER::ScalarExternal;
 
   public:
     FilterSphere(
         const KeyExternal& center,
-        const SCALAR_EXTERNAL& radius,
-        CONVERTER converter = CONVERTER())
-    : center_{center}
+        const ScalarExternal& radius,
+        CONVERTER converter = CONVERTER(),
+        DISTANCE distance_function = DISTANCE())
+    : center_external_{center}
+    , center_internal_{converter.pre(center)}
     , radius_{radius}
-    , converter_{converter} {};
+    , converter_{converter}
+    , distance_function_{distance_function} {};
 
     template <typename T>
     [[nodiscard]] bool IsEntryValid(const KeyInternal& key, const T& value) const {
-        SCALAR_EXTERNAL sum2 = 0;
-        for (dimension_t i = 0; i < DIM; ++i) {
-            SCALAR_EXTERNAL d2 = converter_.post(key[i]) - center_[i];
-            sum2 += d2 * d2;
-        }
-        return sum2 <= radius_ * radius_;
+        KeyExternal point = converter_.post(key);
+        return distance_function_(center_external_, point) <= radius_;
     }
 
     /*
@@ -189,39 +188,38 @@ class FilterSphere {
     [[nodiscard]] bool IsNodeValid(const KeyInternal& prefix, int bits_to_ignore) const {
         // we always want to traverse the root node (bits_to_ignore == 64)
 
-        if (bits_to_ignore >= (MAX_BIT_WIDTH<SCALAR_INTERNAL> - 1)) {
+        if (bits_to_ignore >= (MAX_BIT_WIDTH<ScalarInternal> - 1)) {
             return true;
         }
 
-        SCALAR_INTERNAL node_min_bits = MAX_MASK<SCALAR_INTERNAL> << bits_to_ignore;
-        SCALAR_INTERNAL node_max_bits = ~node_min_bits;
+        ScalarInternal node_min_bits = MAX_MASK<ScalarInternal> << bits_to_ignore;
+        ScalarInternal node_max_bits = ~node_min_bits;
 
-        SCALAR_EXTERNAL sum2 = 0;
+        KeyInternal closest_in_bounds;
         for (size_t i = 0; i < prefix.size(); ++i) {
-            // calculate distance of lower and upper bound to center
-            SCALAR_EXTERNAL dist_lo = converter_.post(prefix[i] & node_min_bits) - center_[i];
-            SCALAR_EXTERNAL dist_hi = converter_.post(prefix[i] | node_max_bits) - center_[i];
+            // calculate lower and upper bound for dimension for given node
+            ScalarInternal lower_bound = prefix[i] & node_min_bits;
+            ScalarInternal upper_bound = prefix[i] | node_max_bits;
 
-            // default case: distance for dimension is zero if center is between high and low value,
-            // i.e., dist_lo and dist_hi have differing sign
-            SCALAR_EXTERNAL min_dist = 0;
-            if (dist_lo > 0 && dist_hi > 0) {
-                // lower bound is closer to center
-                min_dist = dist_lo;
-            } if (dist_lo < 0 && dist_hi < 0) {
-                // upper bound is closer to center
-                min_dist = dist_hi;
+            // choose value closest to center for dimension
+            closest_in_bounds[i] = center_internal_[i];
+            if (closest_in_bounds[i] < lower_bound) {
+                closest_in_bounds[i] = lower_bound;
+            } else if (closest_in_bounds[i] > upper_bound) {
+                closest_in_bounds[i] = upper_bound;
             }
-
-            sum2 += min_dist * min_dist;
         }
-        return sum2 <= radius_ * radius_;
+
+        KeyExternal closest_point = converter_.post(closest_in_bounds);
+        return distance_function_(center_external_, closest_point) <= radius_;
     }
 
   private:
-    const KeyExternal center_;
-    const SCALAR_EXTERNAL radius_;
+    const KeyExternal center_external_;
+    const KeyExternal center_internal_;
+    const ScalarExternal radius_;
     const CONVERTER converter_;
+    const DISTANCE distance_function_;
 };
 
 }  // namespace improbable::phtree

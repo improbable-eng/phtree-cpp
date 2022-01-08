@@ -32,7 +32,7 @@ class ConverterNoOpScalar {
 };
 
 TEST(PhTreeFilterTest, FilterSphereTest) {
-    FilterSphere<2, scalar_64_t, scalar_64_t, ConverterNoOpScalar> filter{{5, 3}, 5};
+    FilterSphere<ConverterNoOp<2, scalar_64_t>, DistanceEuclidean<2>> filter{{5, 3}, 5};
     // root is always valid
     ASSERT_TRUE(filter.IsNodeValid({0, 0}, 63));
     // valid because node encompasses the circle
