@@ -20,8 +20,8 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
-#include <climits>
 #include <cstdint>
+#include <limits>
 #include <sstream>
 
 /*

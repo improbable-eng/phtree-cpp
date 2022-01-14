@@ -24,9 +24,9 @@
 #include "flat_sparse_map.h"
 #include "tree_stats.h"
 #include <cassert>
-#include <climits>
 #include <cmath>
 #include <functional>
+#include <limits>
 #include <sstream>
 
 namespace improbable::phtree {
