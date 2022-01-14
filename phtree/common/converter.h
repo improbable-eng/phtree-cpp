@@ -18,6 +18,7 @@
 #define PHTREE_COMMON_CONVERTER_H
 
 #include "base_types.h"
+#include <cstring>
 
 /*
  * PLEASE do not include this file directly, it is included via common.h.
@@ -37,13 +38,18 @@ class ScalarConverterIEEE {
         // This result is properly ordered longs for all positive doubles. Negative values have
         // inverse ordering. For negative doubles, we therefore simply invert them to make them
         // sortable, however the sign must be inverted again to stay negative.
-        scalar_64_t r = reinterpret_cast<scalar_64_t&>(value);
+        // Also, we could use reinterpret_cast, but that fails on GCC. Using memcpy results in the
+        // same asm instructions as reinterpret_cast().
+        scalar_64_t r;
+        memcpy(&r, &value, sizeof(r));
         return r >= 0 ? r : r ^ 0x7FFFFFFFFFFFFFFFL;
     }
 
     static double post(scalar_64_t value) {
         auto v = value >= 0 ? value : value ^ 0x7FFFFFFFFFFFFFFFL;
-        return reinterpret_cast<double&>(v);
+        double r;
+        memcpy(&r, &v, sizeof(r));
+        return r;
     }
 
     static scalar_32_t pre(float value) {
@@ -52,13 +58,16 @@ class ScalarConverterIEEE {
         // This result is properly ordered longs for all positive doubles. Negative values have
         // inverse ordering. For negative doubles, we therefore simply invert them to make them
         // sortable, however the sign must be inverted again to stay negative.
-        scalar_32_t r = reinterpret_cast<scalar_32_t&>(value);
+        scalar_32_t r;
+        memcpy(&r, &value, sizeof(r));
         return r >= 0 ? r : r ^ 0x7FFFFFFFL;
     }
 
     static float post(scalar_32_t value) {
         auto v = value >= 0 ? value : value ^ 0x7FFFFFFFL;
-        return reinterpret_cast<float&>(v);
+        float r;
+        memcpy(&r, &v, sizeof(r));
+        return r;
     }
 };
 

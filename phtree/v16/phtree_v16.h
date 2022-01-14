@@ -56,9 +56,9 @@ class PhTreeV16 {
     friend PhTreeDebugHelper;
     using ScalarExternal = typename CONVERT::ScalarExternal;
     using ScalarInternal = typename CONVERT::ScalarInternal;
-    using Key = typename CONVERT::KeyInternal;
-    using Node = Node<DIM, T, ScalarInternal>;
-    using Entry = Entry<DIM, T, ScalarInternal>;
+    using KeyT = typename CONVERT::KeyInternal;
+    using NodeT = Node<DIM, T, ScalarInternal>;
+    using EntryT = Entry<DIM, T, ScalarInternal>;
 
   public:
     static_assert(!std::is_reference<T>::value, "Reference type value are not supported.");
@@ -90,7 +90,7 @@ class PhTreeV16 {
      * entry instead of inserting a new one.
      */
     template <typename... _Args>
-    std::pair<T&, bool> emplace(const Key& key, _Args&&... __args) {
+    std::pair<T&, bool> emplace(const KeyT& key, _Args&&... __args) {
         auto* current_entry = &root_;
         bool is_inserted = false;
         while (current_entry->IsNode()) {
@@ -117,7 +117,7 @@ class PhTreeV16 {
      * emplace_hint(iter, key2, value);  // the iterator can still be used as hint here
      */
     template <typename ITERATOR, typename... _Args>
-    std::pair<T&, bool> emplace_hint(const ITERATOR& iterator, const Key& key, _Args&&... __args) {
+    std::pair<T&, bool> emplace_hint(const ITERATOR& iterator, const KeyT& key, _Args&&... __args) {
         // This function can be used to insert a value close to a known value
         // or close to a recently removed value. The hint can only be used if the new key is
         // inside one of the nodes provided by the hint iterator.
@@ -157,7 +157,7 @@ class PhTreeV16 {
      * @return a pair consisting of the inserted element (or to the element that prevented the
      * insertion) and a bool denoting whether the insertion took place.
      */
-    std::pair<T&, bool> insert(const Key& key, const T& value) {
+    std::pair<T&, bool> insert(const KeyT& key, const T& value) {
         return emplace(key, value);
     }
 
@@ -165,7 +165,7 @@ class PhTreeV16 {
      * @return the value stored at position 'key'. If no such value exists, one is added to the tree
      * and returned.
      */
-    T& operator[](const Key& key) {
+    T& operator[](const KeyT& key) {
         return emplace(key).first;
     }
 
@@ -174,7 +174,7 @@ class PhTreeV16 {
      *
      * @return '1', if a value is associated with the provided key, otherwise '0'.
      */
-    size_t count(const Key& key) const {
+    size_t count(const KeyT& key) const {
         if (empty()) {
             return 0;
         }
@@ -193,14 +193,14 @@ class PhTreeV16 {
      * @return an iterator that points either to the associated value or to {@code end()} if the key
      * was found
      */
-    auto find(const Key& key) const {
+    auto find(const KeyT& key) const {
         if (empty()) {
             return IteratorSimple<T, CONVERT>(converter_);
         }
 
-        const Entry* current_entry = &root_;
-        const Entry* current_node = nullptr;
-        const Entry* parent_node = nullptr;
+        const EntryT* current_entry = &root_;
+        const EntryT* current_node = nullptr;
+        const EntryT* parent_node = nullptr;
         while (current_entry && current_entry->IsNode()) {
             parent_node = current_node;
             current_node = current_entry;
@@ -215,9 +215,9 @@ class PhTreeV16 {
      *
      * @return '1' if a value was found, otherwise '0'.
      */
-    size_t erase(const Key& key) {
+    size_t erase(const KeyT& key) {
         auto* current_node = &root_.GetNode();
-        Node* parent_node = nullptr;
+        NodeT* parent_node = nullptr;
         bool found = false;
         while (current_node) {
             auto* child_node = current_node->Erase(key, parent_node, found);
@@ -343,7 +343,7 @@ class PhTreeV16 {
     template <typename DISTANCE, typename FILTER = FilterNoOp>
     auto begin_knn_query(
         size_t min_results,
-        const Key& center,
+        const KeyT& center,
         DISTANCE distance_function = DISTANCE(),
         FILTER filter = FILTER()) const {
         return IteratorKnnHS<T, CONVERT, DISTANCE, FILTER>(
@@ -362,7 +362,7 @@ class PhTreeV16 {
      */
     void clear() {
         num_entries_ = 0;
-        root_ = Entry(0, MAX_BIT_WIDTH<ScalarInternal> - 1);
+        root_ = EntryT(0, MAX_BIT_WIDTH<ScalarInternal> - 1);
     }
 
     /*
@@ -391,7 +391,7 @@ class PhTreeV16 {
     size_t num_entries_;
     // Contract: root_ contains a Node with 0 or more entries (the root node is the only Node
     // that is allowed to have less than two entries.
-    Entry root_;
+    EntryT root_;
     IteratorEnd<T, CONVERT> the_end_;
     CONVERT converter_;
 };

@@ -17,9 +17,9 @@
 #ifndef PHTREE_V16_NODE_H
 #define PHTREE_V16_NODE_H
 
-#include "entry.h"
 #include "../common/common.h"
 #include "../common/tree_stats.h"
+#include "entry.h"
 #include "phtree_v16.h"
 #include <map>
 
@@ -108,8 +108,8 @@ void MergeIntoParent(Node<DIM, T, SCALAR>& child_node, Node<DIM, T, SCALAR>& par
  */
 template <dimension_t DIM, typename T, typename SCALAR>
 class Node {
-    using Key = PhPoint<DIM, SCALAR>;
-    using Entry = Entry<DIM, T, SCALAR>;
+    using KeyT = PhPoint<DIM, SCALAR>;
+    using EntryT = Entry<DIM, T, SCALAR>;
 
   public:
     Node(bit_width_t infix_len, bit_width_t postfix_len)
@@ -164,7 +164,7 @@ class Node {
      * @param __args Constructor arguments for creating a value T that can be inserted for the key.
      */
     template <typename... _Args>
-    Entry* Emplace(bool& is_inserted, const Key& key, _Args&&... __args) {
+    EntryT* Emplace(bool& is_inserted, const KeyT& key, _Args&&... __args) {
         hc_pos_t hc_pos = CalcPosInArray(key, GetPostfixLen());
         auto emplace_result = entries_.try_emplace(hc_pos, key, std::forward<_Args>(__args)...);
         auto& entry = emplace_result.first->second;
@@ -183,7 +183,7 @@ class Node {
      * @param parent parent node
      * @return The sub node or null.
      */
-    const Entry* Find(const Key& key) const {
+    const EntryT* Find(const KeyT& key) const {
         hc_pos_t hc_pos = CalcPosInArray(key, GetPostfixLen());
         const auto& entry = entries_.find(hc_pos);
         if (entry != entries_.end() && DoesEntryMatch(entry->second, key)) {
@@ -202,7 +202,7 @@ class Node {
      * @param found This is and output parameter and will be set to 'true' if a value was removed.
      * @return A child node if the provided key leads to a child node.
      */
-    Node* Erase(const Key& key, Node* parent, bool& found) {
+    Node* Erase(const KeyT& key, Node* parent, bool& found) {
         hc_pos_t hc_pos = CalcPosInArray(key, GetPostfixLen());
         auto it = entries_.find(hc_pos);
         if (it != entries_.end() && DoesEntryMatch(it->second, key)) {
@@ -281,11 +281,11 @@ class Node {
 
   private:
     template <typename... _Args>
-    auto& WriteValue(hc_pos_t hc_pos, const Key& new_key, _Args&&... __args) {
+    auto& WriteValue(hc_pos_t hc_pos, const KeyT& new_key, _Args&&... __args) {
         return entries_.try_emplace(hc_pos, new_key, std::forward<_Args>(__args)...).first->second;
     }
 
-    void WriteEntry(hc_pos_t hc_pos, Entry&& entry) {
+    void WriteEntry(hc_pos_t hc_pos, EntryT&& entry) {
         if (entry.IsNode()) {
             auto& node = entry.GetNode();
             bit_width_t new_subnode_infix_len = postfix_len_ - node.postfix_len_ - 1;
@@ -310,7 +310,7 @@ class Node {
      */
     template <typename... _Args>
     auto* HandleCollision(
-        Entry& existing_entry, bool& is_inserted, const Key& new_key, _Args&&... __args) {
+        EntryT& existing_entry, bool& is_inserted, const KeyT& new_key, _Args&&... __args) {
         assert(!is_inserted);
         // We have two entries in the same location (local pos).
         // Now we need to compare the keys.
@@ -345,8 +345,8 @@ class Node {
 
     template <typename... _Args>
     auto* InsertSplit(
-        Entry& current_entry,
-        const Key& new_key,
+        EntryT& current_entry,
+        const KeyT& new_key,
         bit_width_t max_conflicting_bits,
         _Args&&... __args) {
         const auto current_key = current_entry.GetKey();
@@ -378,7 +378,7 @@ class Node {
      * @return 'true' iff the relevant part of the key matches (prefix for nodes, whole key for
      * other entries).
      */
-    bool DoesEntryMatch(const Entry& entry, const Key& key) const {
+    bool DoesEntryMatch(const EntryT& entry, const KeyT& key) const {
         if (entry.IsNode()) {
             const auto& sub = entry.GetNode();
             if (sub.GetInfixLen() > 0) {
@@ -400,7 +400,7 @@ class Node {
     // The number of bits between this node and the parent node. For 64bit keys possible values
     // range from 0 to 62.
     bit_width_t infix_len_;
-    EntryMap<DIM, Entry> entries_;
+    EntryMap<DIM, EntryT> entries_;
 };
 
 }  // namespace improbable::phtree::v16

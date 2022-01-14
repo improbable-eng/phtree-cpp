@@ -17,8 +17,8 @@
 #ifndef PHTREE_V16_FOR_EACH_H
 #define PHTREE_V16_FOR_EACH_H
 
-#include "iterator_simple.h"
 #include "../common/common.h"
+#include "iterator_simple.h"
 
 namespace improbable::phtree::v16 {
 
@@ -32,20 +32,20 @@ class ForEach {
     using KeyExternal = typename CONVERT::KeyExternal;
     using KeyInternal = typename CONVERT::KeyInternal;
     using SCALAR = typename CONVERT::ScalarInternal;
-    using Entry = Entry<DIM, T, SCALAR>;
-    using Node = Node<DIM, T, SCALAR>;
+    using EntryT = Entry<DIM, T, SCALAR>;
+    using NodeT = Node<DIM, T, SCALAR>;
 
   public:
     ForEach(const CONVERT& converter, CALLBACK_FN& callback, FILTER filter)
     : converter_{converter}, callback_{callback}, filter_(std::move(filter)) {}
 
-    void run(const Entry& root) {
+    void run(const EntryT& root) {
         assert(root.IsNode());
         TraverseNode(root.GetKey(), root.GetNode());
     }
 
   private:
-    void TraverseNode(const KeyInternal& key, const Node& node) {
+    void TraverseNode(const KeyInternal& key, const NodeT& node) {
         auto iter = node.Entries().begin();
         auto end = node.Entries().end();
         for (; iter != end; ++iter) {

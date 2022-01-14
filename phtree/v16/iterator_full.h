@@ -17,8 +17,8 @@
 #ifndef PHTREE_V16_ITERATOR_FULL_H
 #define PHTREE_V16_ITERATOR_FULL_H
 
-#include "iterator_base.h"
 #include "../common/common.h"
+#include "iterator_base.h"
 
 namespace improbable::phtree::v16 {
 
@@ -29,11 +29,11 @@ template <typename T, typename CONVERT, typename FILTER>
 class IteratorFull : public IteratorBase<T, CONVERT, FILTER> {
     static constexpr dimension_t DIM = CONVERT::DimInternal;
     using SCALAR = typename CONVERT::ScalarInternal;
-    using Node = Node<DIM, T, SCALAR>;
-    using Entry = typename IteratorBase<T, CONVERT, FILTER>::Entry;
+    using NodeT = Node<DIM, T, SCALAR>;
+    using EntryT = typename IteratorBase<T, CONVERT, FILTER>::EntryT;
 
   public:
-    IteratorFull(const Entry& root, const CONVERT& converter, FILTER filter)
+    IteratorFull(const EntryT& root, const CONVERT& converter, FILTER filter)
     : IteratorBase<T, CONVERT, FILTER>(converter, filter), stack_{}, stack_size_{0} {
         PrepareAndPush(root.GetNode());
         FindNextElement();
@@ -73,7 +73,7 @@ class IteratorFull : public IteratorBase<T, CONVERT, FILTER> {
         this->SetFinished();
     }
 
-    auto& PrepareAndPush(const Node& node) {
+    auto& PrepareAndPush(const NodeT& node) {
         assert(stack_size_ < stack_.size() - 1);
         // No '&'  because this is a temp value
         stack_[stack_size_].first = node.Entries().cbegin();
@@ -102,7 +102,7 @@ class IteratorFull : public IteratorBase<T, CONVERT, FILTER> {
     }
 
     std::array<
-        std::pair<EntryIteratorC<DIM, Entry>, EntryIteratorC<DIM, Entry>>,
+        std::pair<EntryIteratorC<DIM, EntryT>, EntryIteratorC<DIM, EntryT>>,
         MAX_BIT_WIDTH<SCALAR>>
         stack_;
     size_t stack_size_;
