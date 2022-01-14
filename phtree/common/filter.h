@@ -25,9 +25,9 @@
 #include "tree_stats.h"
 #include <algorithm>
 #include <cassert>
-#include <climits>
 #include <cmath>
 #include <functional>
+#include <limits>
 #include <sstream>
 
 namespace improbable::phtree {
