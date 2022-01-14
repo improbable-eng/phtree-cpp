@@ -444,7 +444,7 @@ There are numerous ways to improve performance. The following list gives an over
 4) **Use non-box query shapes**. Depending on the use case it may be more suitable to use a custom filter for querier. 
 For example: 
 
-    `tree.for_each(callback, MySphereFIlter(center, radius, tree.converter()));` 
+    `tree.for_each(callback, FilterSphere(center, radius, tree.converter()));`
 
 5) **Use a different data converter**. The default converter of the PH-Tree results in a reasonably fast index. 
 Its biggest advantage is that it provides lossless conversion from floating point coordinates to PH-Tree coordinates 
