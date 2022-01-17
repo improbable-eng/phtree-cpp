@@ -23,6 +23,7 @@
 #include "flat_array_map.h"
 #include "flat_sparse_map.h"
 #include "tree_stats.h"
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <functional>
@@ -148,6 +149,73 @@ class FilterAABB {
     const KeyInternal min_internal_;
     const KeyInternal max_internal_;
     const CONVERTER converter_;
+};
+
+
+/*
+ * The sphere filter can be used to query a point tree for a sphere.
+ */
+template <
+    typename CONVERTER = ConverterIEEE<3>,
+    typename DISTANCE = DistanceEuclidean<3>>
+class FilterSphere {
+    using KeyExternal = typename CONVERTER::KeyExternal;
+    using KeyInternal = typename CONVERTER::KeyInternal;
+    using ScalarInternal = typename CONVERTER::ScalarInternal;
+    using ScalarExternal = typename CONVERTER::ScalarExternal;
+
+  public:
+    FilterSphere(
+        const KeyExternal& center,
+        const ScalarExternal& radius,
+        CONVERTER converter = CONVERTER(),
+        DISTANCE distance_function = DISTANCE())
+    : center_external_{center}
+    , center_internal_{converter.pre(center)}
+    , radius_{radius}
+    , converter_{converter}
+    , distance_function_{distance_function} {};
+
+    template <typename T>
+    [[nodiscard]] bool IsEntryValid(const KeyInternal& key, const T& value) const {
+        KeyExternal point = converter_.post(key);
+        return distance_function_(center_external_, point) <= radius_;
+    }
+
+    /*
+     * Calculate whether AABB encompassing all possible points in the node intersects with the
+     * sphere.
+     */
+    [[nodiscard]] bool IsNodeValid(const KeyInternal& prefix, int bits_to_ignore) const {
+        // we always want to traverse the root node (bits_to_ignore == 64)
+
+        if (bits_to_ignore >= (MAX_BIT_WIDTH<ScalarInternal> - 1)) {
+            return true;
+        }
+
+        ScalarInternal node_min_bits = MAX_MASK<ScalarInternal> << bits_to_ignore;
+        ScalarInternal node_max_bits = ~node_min_bits;
+
+        KeyInternal closest_in_bounds;
+        for (size_t i = 0; i < prefix.size(); ++i) {
+            // calculate lower and upper bound for dimension for given node
+            ScalarInternal lo = prefix[i] & node_min_bits;
+            ScalarInternal hi = prefix[i] | node_max_bits;
+
+            // choose value closest to center for dimension
+            closest_in_bounds[i] = std::clamp(center_internal_[i], lo, hi);
+        }
+
+        KeyExternal closest_point = converter_.post(closest_in_bounds);
+        return distance_function_(center_external_, closest_point) <= radius_;
+    }
+
+  private:
+    const KeyExternal center_external_;
+    const KeyExternal center_internal_;
+    const ScalarExternal radius_;
+    const CONVERTER converter_;
+    const DISTANCE distance_function_;
 };
 
 }  // namespace improbable::phtree
