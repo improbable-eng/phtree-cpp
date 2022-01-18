@@ -145,7 +145,7 @@ typename std::enable_if<SCENARIO == Scenario::TREE_WITH_MAP, size_t>::type Updat
         assert(iter_old_bucket != tree.end());
         bool success = iter_old_bucket->erase(update.id_);
         if (iter_old_bucket->empty()) {
-            success &= tree.erase(iter_old_bucket);
+            success &= tree.erase(iter_old_bucket) != 0;
         }
         n += success;
     }

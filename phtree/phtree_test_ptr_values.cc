@@ -42,9 +42,9 @@ class IntRng {
 struct Id {
     Id() = default;
 
-    explicit Id(const int i) : _i(i){};
+    explicit Id(const size_t i) : _i((int)i){};
 
-    bool operator==(Id& rhs) {
+    bool operator==(Id& rhs) const {
         return _i == rhs._i;
     }
 
@@ -467,7 +467,7 @@ TEST(PhTreeTestPtr, TestUpdateWithEmplace) {
     for (auto& p : points) {
         auto pOld = p;
         PhPoint<dim> pNew{pOld[0] + delta, pOld[1] + delta, pOld[2] + delta};
-        int n = tree.erase(pOld);
+        size_t n = tree.erase(pOld);
         ASSERT_EQ(1, n);
         tree.emplace(pNew, new Id(42));
         ASSERT_EQ(1, tree.count(pNew));

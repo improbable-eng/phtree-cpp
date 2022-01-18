@@ -157,6 +157,7 @@ class array_map {
     }
 
     void occupied(size_t index, bool flag) {
+        (void)flag;
         assert(index < SIZE);
         assert(occupied(index) != flag);
         // flip the bit
