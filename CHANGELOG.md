@@ -9,7 +9,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - FilterSphere for filtering by sphere constraint (by ctbur)
 ### Changed
 - Fixed imports  `<climits>` -> `<limits>` (by ctbur)
-- Fix "unused" warnings
+- Fixed warnings:
+  - "unused" function argument warnings
+  - gcc/clang warnings
+  - MSVC warnings
+  - reserved identifier warnings (identifiers starting with `_`)
 
 ## [1.0.1] - 2021-05-06
 ### Changed
