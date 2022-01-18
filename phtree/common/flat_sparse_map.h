@@ -98,14 +98,14 @@ class sparse_map {
         return data_.end();
     }
 
-    template <typename... _Args>
-    auto emplace(_Args&&... __args) {
-        return try_emplace_base(std::forward<_Args>(__args)...);
+    template <typename... Args>
+    auto emplace(Args&&... args) {
+        return try_emplace_base(std::forward<Args>(args)...);
     }
 
-    template <typename... _Args>
-    auto try_emplace(size_t key, _Args&&... __args) {
-        return try_emplace_base(key, std::forward<_Args>(__args)...);
+    template <typename... Args>
+    auto try_emplace(size_t key, Args&&... args) {
+        return try_emplace_base(key, std::forward<Args>(args)...);
     }
 
     void erase(size_t key) {
@@ -124,18 +124,18 @@ class sparse_map {
     }
 
   private:
-    template <typename... _Args>
-    auto emplace_base(size_t key, _Args&&... __args) {
+    template <typename... Args>
+    auto emplace_base(size_t key, Args&&... args) {
         auto it = lower_bound(key);
         if (it != end() && it->first == key) {
             return std::make_pair(it, false);
         } else {
-            return std::make_pair(data_.emplace(it, key, std::forward<T>(__args)...), true);
+            return std::make_pair(data_.emplace(it, key, std::forward<Args>(args)...), true);
         }
     }
 
-    template <typename... _Args>
-    auto try_emplace_base(size_t key, _Args&&... __args) {
+    template <typename... Args>
+    auto try_emplace_base(size_t key, Args&&... args) {
         auto it = lower_bound(key);
         if (it != end() && it->first == key) {
             return std::make_pair(it, false);
@@ -144,7 +144,7 @@ class sparse_map {
                 it,
                 std::piecewise_construct,
                 std::forward_as_tuple(key),
-                std::forward_as_tuple(std::forward<_Args>(__args)...));
+                std::forward_as_tuple(std::forward<Args>(args)...));
             return std::make_pair(x, true);
         }
     }
