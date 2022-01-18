@@ -66,9 +66,9 @@ class Entry {
     /*
      * Construct entry with new T or moved T.
      */
-    template <typename... _Args>
-    explicit Entry(const KeyT& k, _Args&&... __args)
-    : kd_key_{k}, value_{std::in_place_type<ValueT>, std::forward<_Args>(__args)...} {}
+    template <typename... Args>
+    explicit Entry(const KeyT& k, Args&&... args)
+    : kd_key_{k}, value_{std::in_place_type<ValueT>, std::forward<Args>(args)...} {}
 
     [[nodiscard]] const KeyT& GetKey() const {
         return kd_key_;

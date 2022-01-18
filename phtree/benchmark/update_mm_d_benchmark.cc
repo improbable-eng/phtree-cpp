@@ -89,7 +89,7 @@ class IndexBenchmark {
 template <dimension_t DIM, Scenario SCENARIO>
 IndexBenchmark<DIM, SCENARIO>::IndexBenchmark(
     benchmark::State& state, size_t updates_per_round, std::vector<double> move_distance)
-: data_type_{static_cast<const TestGenerator>(state.range(1))}
+: data_type_{static_cast<TestGenerator>(state.range(1))}
 , num_entities_(state.range(0))
 , updates_per_round_(updates_per_round)
 , move_distance_(std::move(move_distance))
@@ -145,7 +145,7 @@ typename std::enable_if<SCENARIO == Scenario::TREE_WITH_MAP, size_t>::type Updat
         assert(iter_old_bucket != tree.end());
         bool success = iter_old_bucket->erase(update.id_);
         if (iter_old_bucket->empty()) {
-            success &= tree.erase(iter_old_bucket);
+            success &= tree.erase(iter_old_bucket) != 0;
         }
         n += success;
     }

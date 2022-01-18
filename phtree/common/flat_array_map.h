@@ -95,14 +95,14 @@ class array_map {
         return PhFlatMapIterator<T, SIZE>{SIZE, *this};
     }
 
-    template <typename... _Args>
-    auto emplace(_Args&&... __args) {
-        return try_emplace_base(std::forward<_Args>(__args)...);
+    template <typename... Args>
+    auto emplace(Args&&... args) {
+        return try_emplace_base(std::forward<Args>(args)...);
     }
 
-    template <typename... _Args>
-    auto try_emplace(size_t index, _Args&&... __args) {
-        return try_emplace_base(index, std::forward<_Args>(__args)...);
+    template <typename... Args>
+    auto try_emplace(size_t index, Args&&... args) {
+        return try_emplace_base(index, std::forward<Args>(args)...);
     }
 
     bool erase(size_t index) {
@@ -123,13 +123,13 @@ class array_map {
     }
 
   private:
-    template <typename... _Args>
-    std::pair<PhFlatMapPair<T>*, bool> try_emplace_base(size_t index, _Args&&... __args) {
+    template <typename... Args>
+    std::pair<PhFlatMapPair<T>*, bool> try_emplace_base(size_t index, Args&&... args) {
         if (!occupied(index)) {
             new (reinterpret_cast<void*>(&data_[index])) PhFlatMapPair<T>(
                 std::piecewise_construct,
                 std::forward_as_tuple(index),
-                std::forward_as_tuple(std::forward<_Args>(__args)...));
+                std::forward_as_tuple(std::forward<Args>(args)...));
             occupied(index, true);
             return {&data(index), true};
         }
@@ -157,6 +157,7 @@ class array_map {
     }
 
     void occupied(size_t index, bool flag) {
+        (void)flag;
         assert(index < SIZE);
         assert(occupied(index) != flag);
         // flip the bit
@@ -183,7 +184,6 @@ class PhFlatMapIterator {
 
     explicit PhFlatMapIterator(size_t index, const array_map<T, SIZE>& map)
     : first{index}, map_{&map} {
-        assert(index >= 0);
         assert(index <= SIZE);
     }
 
@@ -192,7 +192,7 @@ class PhFlatMapIterator {
         return const_cast<PhFlatMapPair<T>&>(map_->data(first));
     }
 
-    auto* operator-> () const {
+    auto* operator->() const {
         assert(first < SIZE && map_->occupied(first));
         return const_cast<PhFlatMapPair<T>*>(&map_->data(first));
     }

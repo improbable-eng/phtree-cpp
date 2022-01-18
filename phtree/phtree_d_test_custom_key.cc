@@ -68,9 +68,10 @@ class MyConverterMultiply : public ConverterBase<3, 3, double, scalar_64_t, MyPo
     : multiplier_{multiplier}, divider_{1. / multiplier} {}
 
     [[nodiscard]] PointInternal pre(const MyPoint& point) const {
-        return {static_cast<long>(point.x_ * multiplier_),
-                static_cast<long>(point.y_ * multiplier_),
-                static_cast<long>(point.z_ * multiplier_)};
+        return {
+            static_cast<long>(point.x_ * multiplier_),
+            static_cast<long>(point.y_ * multiplier_),
+            static_cast<long>(point.z_ * multiplier_)};
     }
 
     [[nodiscard]] MyPoint post(const PointInternal& in) const {
