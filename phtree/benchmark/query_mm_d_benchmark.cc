@@ -82,7 +82,7 @@ class IndexBenchmark {
 
 template <dimension_t DIM, Scenario SCENARIO>
 IndexBenchmark<DIM, SCENARIO>::IndexBenchmark(benchmark::State& state, double avg_query_result_size)
-: data_type_{static_cast<const TestGenerator>(state.range(1))}
+: data_type_{static_cast<TestGenerator>(state.range(1))}
 , num_entities_(state.range(0))
 , avg_query_result_size_(avg_query_result_size)
 , tree_{}

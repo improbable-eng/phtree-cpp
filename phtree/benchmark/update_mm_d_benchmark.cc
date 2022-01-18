@@ -89,7 +89,7 @@ class IndexBenchmark {
 template <dimension_t DIM, Scenario SCENARIO>
 IndexBenchmark<DIM, SCENARIO>::IndexBenchmark(
     benchmark::State& state, size_t updates_per_round, std::vector<double> move_distance)
-: data_type_{static_cast<const TestGenerator>(state.range(1))}
+: data_type_{static_cast<TestGenerator>(state.range(1))}
 , num_entities_(state.range(0))
 , updates_per_round_(updates_per_round)
 , move_distance_(std::move(move_distance))

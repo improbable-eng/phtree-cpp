@@ -86,7 +86,7 @@ void generateCube(std::vector<PhBoxD<DIM>>& points, size_t N, double boxLen = 10
             continue;
         }
 
-        refTree.emplace(box, i);
+        refTree.emplace(box, i + 1);
         points.push_back(box);
     }
     ASSERT_EQ(refTree.size(), N);
@@ -356,7 +356,7 @@ void populate(
     PhTreeBoxD<DIM, size_t>& tree, std::vector<PhBoxD<DIM>>& points, size_t N, double boxLen = 10) {
     generateCube(points, N, boxLen);
     for (size_t i = 0; i < N; i++) {
-        ASSERT_TRUE(tree.insert(points[i], i).second);
+        ASSERT_TRUE(tree.insert(points[i], i + 1).second);
     }
     ASSERT_EQ(N, tree.size());
 }
@@ -366,7 +366,7 @@ void populate(
     TestTree<DIM, Id>& tree, std::vector<PhBoxD<DIM>>& points, size_t N, double boxLen = 10) {
     generateCube(points, N, boxLen);
     for (size_t i = 0; i < N; i++) {
-        ASSERT_TRUE(tree.emplace(points[i], i).second);
+        ASSERT_TRUE(tree.emplace(points[i], i + 1).second);
     }
     ASSERT_EQ(N, tree.size());
 }
@@ -409,7 +409,7 @@ TEST(PhTreeBoxDTest, TestFind) {
         // test commutativity
         ASSERT_NE(tree.find(p), tree.end());
         ASSERT_NE(tree.end(), tree.find(p));
-        ASSERT_EQ(tree.find(p)->_i, i);
+        ASSERT_EQ(tree.find(p)->_i, i + 1);
         i++;
     }
 
@@ -522,7 +522,7 @@ TEST(PhTreeBoxDTest, TestExtent) {
     int num_e = 0;
     auto qE = tree.begin();
     while (qE != tree.end()) {
-        ASSERT_TRUE(qE->_i >= 0);
+        ASSERT_TRUE(qE->_i >= 1);
         qE++;
         num_e++;
     }
@@ -538,14 +538,14 @@ TEST(PhTreeBoxDTest, TestRangeBasedForLoop) {
 
     int num_e1 = 0;
     for (auto& x : tree) {
-        ASSERT_TRUE(x._i >= 0);
+        ASSERT_TRUE(x._i >= 1);
         num_e1++;
     }
     ASSERT_EQ(N, num_e1);
 
     size_t num_e2 = 0;
     for (auto& x : tree) {
-        ASSERT_TRUE(x._i >= 0);
+        ASSERT_TRUE(x._i >= 1);
         num_e2++;
     }
     ASSERT_EQ(N, num_e2);
@@ -566,7 +566,7 @@ void referenceQuery(
             match &= pMax[d] >= min[d] && pMin[d] <= max[d];
         }
         if (match) {
-            result.insert(i);
+            result.insert(i + 1);
         }
     }
 }
@@ -612,7 +612,7 @@ TEST(PhTreeBoxDTest, TestWindowQuery1) {
         // With intersection queries we may get multiple results.
         size_t found = 0;
         for (auto q = tree.begin_query(p); q != tree.end(); ++q) {
-            found += (i == (*q)._i);
+            found += (i + 1 == (*q)._i);
         }
         ASSERT_EQ(1, found);
         n++;

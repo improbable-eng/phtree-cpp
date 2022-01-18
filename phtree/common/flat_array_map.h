@@ -183,7 +183,6 @@ class PhFlatMapIterator {
 
     explicit PhFlatMapIterator(size_t index, const array_map<T, SIZE>& map)
     : first{index}, map_{&map} {
-        assert(index >= 0);
         assert(index <= SIZE);
     }
 
