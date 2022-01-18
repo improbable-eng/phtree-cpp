@@ -203,6 +203,7 @@ void IndexBenchmark<DIM, SCENARIO>::UpdateWorld(benchmark::State& state) {
     }
 
     if constexpr (SCENARIO == MULTI_MAP) {
+        (void)initial_tree_size;
         if (tree_.size() != num_entities_) {
             logging::error("Invalid index size after update: {}/{}", tree_.size(), num_entities_);
         }

@@ -64,7 +64,7 @@ struct FilterNoOp {
      * @returns This default implementation always returns `true`.
      */
     template <typename KEY, typename T>
-    constexpr bool IsEntryValid(const KEY& key, const T& value) const {
+    constexpr bool IsEntryValid(const KEY& /*key*/, const T& /*value*/) const {
         return true;
     }
 
@@ -77,7 +77,7 @@ struct FilterNoOp {
      * @returns This default implementation always returns `true`.
      */
     template <typename KEY>
-    constexpr bool IsNodeValid(const KEY& prefix, int bits_to_ignore) const {
+    constexpr bool IsNodeValid(const KEY& /*prefix*/, int /*bits_to_ignore*/) const {
         return true;
     }
 };
@@ -116,7 +116,7 @@ class FilterAABB {
     }
 
     template <typename T>
-    [[nodiscard]] bool IsEntryValid(const KeyInternal& key, const T& value) const {
+    [[nodiscard]] bool IsEntryValid(const KeyInternal& key, const T& /*value*/) const {
         auto point = converter_.post(key);
         for (dimension_t i = 0; i < DIM; ++i) {
             if (point[i] < min_external_[i] || point[i] > max_external_[i]) {

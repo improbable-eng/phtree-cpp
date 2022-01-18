@@ -716,7 +716,7 @@ TEST(PhTreeBoxDTest, TestWindowForEachManyMovingPoint) {
         referenceQuery(points, min_max, min_max, referenceResult);
 
         struct Counter {
-            void operator()(PhBoxD<dim> key, Id& t) {
+            void operator()(PhBoxD<dim>, Id& t) {
                 ++n_;
                 ASSERT_EQ(referenceResult.count(t._i), 1);
             }

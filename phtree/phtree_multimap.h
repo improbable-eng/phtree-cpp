@@ -328,7 +328,7 @@ class PhTreeMultiMap {
     template <typename QUERY_TYPE = DEFAULT_QUERY_TYPE>
     size_t estimate_count(QueryBox query_box, QUERY_TYPE query_type = QUERY_TYPE()) const {
         size_t n = 0;
-        auto counter_lambda = [&](const Key& key, const BUCKET& bucket) { n += bucket.size(); };
+        auto counter_lambda = [&](const Key&, const BUCKET& bucket) { n += bucket.size(); };
         tree_.for_each(query_type(converter_.pre_query(query_box)), counter_lambda);
         return n;
     }
@@ -661,8 +661,7 @@ class PhTreeMultiMap {
         // The original filter is then used when we iterate over the entries of a bucket. At this
         // point, we do not need to check IsNodeValid anymore for each entry (see `IteratorNormal`).
         struct FilterWrapper {
-            [[nodiscard]] constexpr bool IsEntryValid(
-                const KeyInternal& key, const BUCKET& value) const {
+            [[nodiscard]] constexpr bool IsEntryValid(const KeyInternal&, const BUCKET&) const {
                 // This filter is checked in the Iterator.
                 return true;
             }

@@ -104,7 +104,7 @@ class FilterBoxIntersection {
         max_include_bits = PRE(maxExclude);
     }
 
-    [[nodiscard]] bool IsEntryValid(const PhPoint<DIM>& key, const int& value) const {
+    [[nodiscard]] bool IsEntryValid(const PhPoint<DIM>& key, const int&) const {
         for (int i = 0; i < DIM; ++i) {
             if (key[i] < min_include_bits[i] || key[i] > max_include_bits[i]) {
                 return false;
@@ -146,11 +146,11 @@ class FilterTrue {
         maxIncludeBits = PRE(maxExclude);
     }
 
-    [[nodiscard]] bool IsEntryValid(const PhPoint<DIM>& key, const int& value) const {
+    [[nodiscard]] bool IsEntryValid(const PhPoint<DIM>&, const int&) const {
         return true;
     }
 
-    [[nodiscard]] bool IsNodeValid(const PhPoint<DIM>& prefix, int bits_to_ignore) const {
+    [[nodiscard]] bool IsNodeValid(const PhPoint<DIM>&, int) const {
         return true;
     }
 
@@ -164,11 +164,11 @@ class FilterTrue2 {
   public:
     FilterTrue2() : minIncludeBits{}, maxIncludeBits{} {};
 
-    [[nodiscard]] bool IsEntryValid(const PhPoint<DIM>& key, const int& value) const {
+    [[nodiscard]] bool IsEntryValid(const PhPoint<DIM>&, const int&) const {
         return true;
     }
 
-    [[nodiscard]] bool IsNodeValid(const PhPoint<DIM>& prefix, int bits_to_ignore) const {
+    [[nodiscard]] bool IsNodeValid(const PhPoint<DIM>&, int) const {
         return true;
     }
 
@@ -179,11 +179,11 @@ class FilterTrue2 {
 
 template <dimension_t DIM, typename T>
 struct FilterTrue3 {
-    [[nodiscard]] constexpr bool IsEntryValid(const PhPoint<DIM>& key, const T& value) const {
+    [[nodiscard]] constexpr bool IsEntryValid(const PhPoint<DIM>&, const T&) const {
         return true;
     }
 
-    [[nodiscard]] constexpr bool IsNodeValid(const PhPoint<DIM>& prefix, int bits_to_ignore) const {
+    [[nodiscard]] constexpr bool IsNodeValid(const PhPoint<DIM>&, int) const {
         return true;
     }
 };

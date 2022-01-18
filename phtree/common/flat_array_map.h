@@ -192,7 +192,7 @@ class PhFlatMapIterator {
         return const_cast<PhFlatMapPair<T>&>(map_->data(first));
     }
 
-    auto* operator-> () const {
+    auto* operator->() const {
         assert(first < SIZE && map_->occupied(first));
         return const_cast<PhFlatMapPair<T>*>(&map_->data(first));
     }

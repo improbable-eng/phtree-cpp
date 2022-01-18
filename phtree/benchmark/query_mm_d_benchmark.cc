@@ -129,7 +129,7 @@ bool CheckPosition(const payload_t& entity, const TestPoint& center, double radi
 }
 
 struct CounterTreeWithMap {
-    void operator()(const PhPointD<3>& key, const BucketType& value) {
+    void operator()(const PhPointD<3>&, const BucketType& value) {
         for (auto& x : value) {
             // n_ += (x.entity_id_ >= 0);
             n_ += CheckPosition(x, center_, radius_);
@@ -141,7 +141,7 @@ struct CounterTreeWithMap {
 };
 
 struct CounterMultiMap {
-    void operator()(const PhPointD<3>& key, const payload_t& value) {
+    void operator()(const PhPointD<3>&, const payload_t& value) {
         n_ += CheckPosition(value, center_, radius_);
     }
     const TestPoint& center_;

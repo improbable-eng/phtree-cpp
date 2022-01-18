@@ -126,7 +126,7 @@ bool CheckPosition(const payload_t& entity, const QueryBox& query) {
 }
 
 struct CounterTreeWithMap {
-    void operator()(const PhBoxD<3>& key, const BucketType& value) {
+    void operator()(const PhBoxD<3>&, const BucketType& value) {
         for (auto& x : value) {
             n_ += CheckPosition(x, box_);
         }
@@ -136,7 +136,7 @@ struct CounterTreeWithMap {
 };
 
 struct CounterMultiMap {
-    void operator()(const PhBoxD<3>& key, const payload_t& value) {
+    void operator()(const PhBoxD<3>&, const payload_t& value) {
         n_ += CheckPosition(value, box_);
     }
     const QueryBox& box_;

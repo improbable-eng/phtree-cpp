@@ -118,7 +118,7 @@ void InsertEntry(
 }
 
 struct CounterTreeWithMap {
-    void operator()(const PhPointD<3>& key, const BucketType& value) {
+    void operator()(const PhPointD<3>&, const BucketType& value) {
         for (auto& x : value) {
             n_ += x.size();
         }
