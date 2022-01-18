@@ -151,13 +151,10 @@ class FilterAABB {
     const CONVERTER converter_;
 };
 
-
 /*
  * The sphere filter can be used to query a point tree for a sphere.
  */
-template <
-    typename CONVERTER = ConverterIEEE<3>,
-    typename DISTANCE = DistanceEuclidean<3>>
+template <typename CONVERTER = ConverterIEEE<3>, typename DISTANCE = DistanceEuclidean<3>>
 class FilterSphere {
     using KeyExternal = typename CONVERTER::KeyExternal;
     using KeyInternal = typename CONVERTER::KeyInternal;
@@ -177,7 +174,7 @@ class FilterSphere {
     , distance_function_{distance_function} {};
 
     template <typename T>
-    [[nodiscard]] bool IsEntryValid(const KeyInternal& key, const T& value) const {
+    [[nodiscard]] bool IsEntryValid(const KeyInternal& key, const T&) const {
         KeyExternal point = converter_.post(key);
         return distance_function_(center_external_, point) <= radius_;
     }
