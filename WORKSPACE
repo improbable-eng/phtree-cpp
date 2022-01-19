@@ -11,8 +11,8 @@ http_archive(
 load("@bazel_skylib//lib:versions.bzl", "versions")
 
 versions.check(
-    minimum_bazel_version = "3.4.1",
-    maximum_bazel_version = "3.4.1",
+    minimum_bazel_version = "4.2.2",
+    maximum_bazel_version = "4.2.2",
 )
 
 # NOTE: We make third_party/ its own bazel workspace because it allows to run `bazel build ...` without
@@ -34,9 +34,9 @@ http_archive(
 
 http_archive(
     name = "gbenchmark",
-    sha256 = "3c6a165b6ecc948967a1ead710d4a181d7b0fbcaa183ef7ea84604994966221a",
-    strip_prefix = "benchmark-1.5.0",
-    url = "https://github.com/google/benchmark/archive/v1.5.0.tar.gz",
+    sha256 = "dccbdab796baa1043f04982147e67bb6e118fe610da2c65f88912d73987e700c",
+    strip_prefix = "benchmark-1.5.2",
+    url = "https://github.com/google/benchmark/archive/v1.5.2.tar.gz",
 )
 
 http_archive(
