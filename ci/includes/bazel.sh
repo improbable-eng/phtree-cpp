@@ -10,5 +10,5 @@ function runBazel() {
 }
 
 function getBazelVersion() {
-  echo "3.4.1"
+  echo "4.2.2"
 }
