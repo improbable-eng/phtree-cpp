@@ -1,14 +1,14 @@
 # PH-Tree C++
 
 The PH-Tree is an ordered index on an n-dimensional space (quad-/oct-/2^n-tree) where each
-dimension is (by default) indexed by a 64 bit integer. The index order follows z-order / Morton
+dimension is (by default) indexed by a 64bit integer. The index order follows z-order / Morton
 order. The default implementation is effectively a 'map', i.e. each key is associated with at most one value.
 Keys are points or boxes in n-dimensional space.
 
 
 
-One strength of PH-Trees are fast insert/removal operations and scalability with large datasets.
-It also provides fast window queries and _k_-nearest neighbor queries, and it scales well with higher dimenions.
+Two strengths of PH-Trees are fast insert/removal operations and scalability with large datasets.
+It also provides fast window queries and _k_-nearest neighbor queries, and it scales well with higher dimensions.
 The default implementation is limited to 63 dimensions.
 
 The API ist mostly analogous to STL's `std::map`, see function descriptions for details.
@@ -132,6 +132,7 @@ tree.estimate_count(query);
 * For-each with box shaped window queries: `tree.fore_each(PhBoxD(min, max), callback);`
 * Iterator for box shaped window queries: `auto q = tree.begin_query(PhBoxD(min, max));`
 * Iterator for _k_ nearest neighbor queries: `auto q = tree.begin_knn_query(k, center_point, distance_function);`
+* Custom query shapes, such as spheres: `tree.for_each(callback, FilterSphere(center, radius, tree.converter()));` 
 
 <a name="for-each-example" />
 
@@ -174,7 +175,7 @@ for (auto it = tree.begin_knn_query(5, {1, 1, 1}); it != tree.end(); ++it) {
 <a name="Filters" />
 
 ##### Filters
-All queries allow specifying an additional filter. The filter is called for every key/value pair that the would 
+All queries allow specifying an additional filter. The filter is called for every key/value pair that would 
 normally be returned (subject to query constraints) and to every node in the tree that the query decides to 
 traverse (also subject to query constraints). Returning `true` in the filter does not change query behaviour, 
 returning `false` means that the current value or child node is not returned or traversed.
@@ -221,7 +222,7 @@ for (auto it = tree.begin_knn_query(5, {1, 1, 1}, DistanceL1<3>())); it != tree.
 #### Converters
 The PH-Tree can internally only process integer keys. In order to use floating point coordinates, the floating point 
 coordinates must be converted to integer coordinates. The `PhTreeD` and `PhTreeBoxD` use by default the 
-`PreprocessIEEE` & `PostProcessIEEE` functions. The `IEEE` processor is a loss-less converter (in term of numeric 
+`PreprocessIEEE` & `PostProcessIEEE` functions. The `IEEE` processor is a loss-less converter (in terms of numeric 
 precision) that simply takes the 64bits of a double value and treats them as if they were a 64bit integer 
 (it is slightly more complicated than that, see discussion in the papers referenced above).
 In other words, it treats the IEEE 754 representation of the double value as integer, hence the name `IEEE` converter.
@@ -441,7 +442,7 @@ There are numerous ways to improve performance. The following list gives an over
     * Using pointers is also useful if construction/destruction of values is expensive. The reason is that
     the tree has to construct and destruct objects internally. This may be avoidable but is currently still happening.
 
-4) **Use non-box query shapes**. Depending on the use case it may be more suitable to use a custom filter for querier. 
+4) **Use non-box query shapes**. Depending on the use case it may be more suitable to use a custom filter for queries. 
 For example: 
 
     `tree.for_each(callback, FilterSphere(center, radius, tree.converter()));`
@@ -449,7 +450,7 @@ For example:
 5) **Use a different data converter**. The default converter of the PH-Tree results in a reasonably fast index. 
 Its biggest advantage is that it provides lossless conversion from floating point coordinates to PH-Tree coordinates 
 (integers) and back to floating point coordinates.
-    * The `ConverterMultiply` is a lossy converter but it tends to give 10% or more better performance. This is not caused
+    * The `ConverterMultiply` is a lossy converter but it tends to improve performance by 10% or more. This is not caused
     by faster operation in the converter itself but by a more compact tree shape. The example shows how to use a converter
     that multiplies coordinates by 100'000, thus preserving roughly 5 fractional digits:
     
@@ -460,8 +461,8 @@ Its biggest advantage is that it provides lossless conversion from floating poin
      can often be adapted to be accepted directly by the PH-Tree without conversion. This requires implementing a
      custom converter as described in the section about [Custom Key Types](#custom-key-types).
 
-7) Advanced: **Adapt internal Node represenation**. Depending on the dimensionality `DIM`, the PH-Tree uses internally in 
-`Nodes` different container types to hold entries. By default it uses an array for `DIM<=3`, a vector
+7) Advanced: **Adapt internal Node representation**. Depending on the dimensionality `DIM`, the PH-Tree uses internally in 
+`Nodes` different container types to hold entries. By default, it uses an array for `DIM<=3`, a vector
 for `DIM<=8` and an ordered map for `DIM>8`. Adapting these thresholds can have strong effects on performance as well as 
 memory usage. 
 One example: Changing the threshold to use vector for `DIM==3` reduced performance of the `update_d` benchmark by 40%-50% but
@@ -484,7 +485,7 @@ This section will guide you through the initial build system and IDE you need to
 
 ### Build system & dependencies
 
-PH-Tree can be built with *cmake 3.14* or [Bazel](https://bazel.build) as build system. All of the code is written in C++ targeting the C++17 standard.
+PH-Tree can be built with *cmake 3.14* or [Bazel](https://bazel.build) as build system. All code is written in C++ targeting the C++17 standard.
 The code has been verified to compile with Clang 9 on Linux and Visual Studio 2019 on Windows.
 
 #### Ubuntu Linux
@@ -545,7 +546,7 @@ cmake --build .
 
 ### Theory
 
-The PH-Tree is discussed in the follwoing publications and reports:   
+The PH-Tree is discussed in the following publications and reports:   
 
 - T. Zaeschke, C. Zimmerli, M.C. Norrie:
   "The PH-Tree -- A Space-Efficient Storage Structure and Multi-Dimensional Index", (SIGMOD 2014)
