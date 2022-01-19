@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   - gcc/clang warnings
   - MSVC warnings
   - reserved identifier warnings (identifiers starting with `_`)
+- typos in README.md 
 
 ## [1.0.1] - 2021-05-06
 ### Changed
