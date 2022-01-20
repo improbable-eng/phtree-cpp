@@ -62,7 +62,7 @@ struct Id {
         ++default_construct_count_;
     }
 
-    explicit Id(const size_t i) : _i{(int)i} {
+    explicit Id(const size_t i) : _i{static_cast<int>(i)} {
         ++construct_count_;
     };
 
