@@ -285,13 +285,15 @@ class Node {
         return entries_.try_emplace(hc_pos, new_key, std::forward<Args>(args)...).first->second;
     }
 
-    void WriteEntry(hc_pos_t hc_pos, EntryT&& entry) {
+    void WriteEntry(hc_pos_t hc_pos, EntryT& entry) {
         if (entry.IsNode()) {
             auto& node = entry.GetNode();
             bit_width_t new_subnode_infix_len = postfix_len_ - node.postfix_len_ - 1;
             node.SetInfixLen(new_subnode_infix_len);
+            entries_.try_emplace(hc_pos, entry.GetKey(), entry.ExtractNode());
+        } else {
+            entries_.try_emplace(hc_pos, entry.GetKey(), entry.ExtractValue());
         }
-        entries_.try_emplace(hc_pos, std::move(entry));
     }
 
     /*
@@ -356,13 +358,11 @@ class Node {
         hc_pos_t pos_sub_2 = CalcPosInArray(current_key, new_postfix_len);
 
         // Move key/value into subnode
-        new_sub_node->WriteEntry(pos_sub_2, std::move(current_entry));
+        new_sub_node->WriteEntry(pos_sub_2, current_entry);
         auto& new_entry = new_sub_node->WriteValue(pos_sub_1, new_key, std::forward<Args>(args)...);
 
         // Insert new node into local node
-        // We use new_key because current_key has been moved().
-        // TODO avoid reassigning the key here, this is unnecessary.
-        current_entry = {new_key, std::move(new_sub_node)};
+        current_entry.SetNode(std::move(new_sub_node));
         return &new_entry;
     }
 
