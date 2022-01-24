@@ -63,6 +63,15 @@ struct DistanceEuclidean {
         }
         return sqrt(sum2);
     };
+
+    double operator()(const PhPointF<DIM>& v1, const PhPointF<DIM>& v2) const {
+        double sum2 = 0;
+        for (dimension_t i = 0; i < DIM; i++) {
+            double d2 = double(v1[i] - v2[i]);
+            sum2 += d2 * d2;
+        }
+        return sqrt(sum2);
+    };
 };
 
 template <dimension_t DIM>

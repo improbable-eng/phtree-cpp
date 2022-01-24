@@ -780,18 +780,6 @@ TEST(PhTreeFTest, TestWindowQueryFilter) {
     ASSERT_GE(50, num_e);
 }
 
-template <dimension_t DIM>
-struct DistanceEuclideanFloat {
-    double operator()(const TestPoint<DIM>& v1, const TestPoint<DIM>& v2) const {
-        double sum2 = 0;
-        for (dimension_t i = 0; i < DIM; i++) {
-            double d2 = double(v1[i] - v2[i]);
-            sum2 += d2 * d2;
-        }
-        return sqrt(sum2);
-    };
-};
-
 TEST(PhTreeFTest, TestKnnQuery) {
     // deliberately allowing outside of main points range
     FloatRng rng(-1500, 1500);
@@ -816,7 +804,7 @@ TEST(PhTreeFTest, TestKnnQuery) {
 
         size_t n = 0;
         double prevDist = -1;
-        auto q = tree.begin_knn_query(Nq, center, DistanceEuclideanFloat<3>());
+        auto q = tree.begin_knn_query(Nq, center, DistanceEuclidean<3>());
         while (q != tree.end()) {
             // just read the entry
             auto& e = *q;
@@ -899,8 +887,8 @@ TEST(PhTreeFTest, TestKnnQueryIterator) {
 
     TestPoint<dim> center{rng.next(), rng.next(), rng.next()};
     size_t n = 0;
-    auto q1 = tree.begin_knn_query(Nq, center, DistanceEuclideanFloat<3>());
-    auto q2 = tree.begin_knn_query(Nq, center, DistanceEuclideanFloat<3>());
+    auto q1 = tree.begin_knn_query(Nq, center, DistanceEuclidean<3>());
+    auto q2 = tree.begin_knn_query(Nq, center, DistanceEuclidean<3>());
     while (q1 != tree.end()) {
         ASSERT_NE(q1, tree.end());
         ASSERT_NE(q2, tree.end());
@@ -926,7 +914,7 @@ TEST(PhTreeFTest, SmokeTestPoint0) {
     auto q_extent = tree.begin();
     ASSERT_EQ(q_extent, tree.end());
 
-    auto q_knn = tree.begin_knn_query(10, p, DistanceEuclideanFloat<3>());
+    auto q_knn = tree.begin_knn_query(10, p, DistanceEuclidean<3>());
     ASSERT_EQ(q_knn, tree.end());
 
     ASSERT_EQ(0, tree.erase(p));
@@ -974,7 +962,7 @@ TEST(PhTreeFTest, SmokeTestPointInfinity) {
     ++q_extent;
     ASSERT_EQ(q_extent, tree.end());
 
-    auto q_knn = tree.begin_knn_query(10, p, DistanceEuclideanFloat<3>());
+    auto q_knn = tree.begin_knn_query(10, p, DistanceEuclidean<3>());
     ASSERT_EQ(1, q_knn->_i);
     ++q_knn;
     ASSERT_NE(q_knn, tree.end());
