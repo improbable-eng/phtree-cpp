@@ -439,9 +439,10 @@ TEST(PhTreeFTest, TestUpdateWithEmplace) {
 
     for (auto& p : points) {
         auto pOld = p;
-        TestPoint<dim> pNew{static_cast<float>(pOld[0] + delta),
-                            static_cast<float>(pOld[1] + delta),
-                            static_cast<float>(pOld[2] + delta)};
+        TestPoint<dim> pNew{
+            static_cast<float>(pOld[0] + delta),
+            static_cast<float>(pOld[1] + delta),
+            static_cast<float>(pOld[2] + delta)};
         int n = tree.erase(pOld);
         ASSERT_EQ(1, n);
         tree.emplace(pNew, 42);
@@ -516,11 +517,10 @@ TEST(PhTreeFTest, TestExtent) {
 template <dimension_t DIM, typename T>
 struct FilterEvenId {
     [[nodiscard]] constexpr bool IsEntryValid(
-        const PhPoint<DIM, scalar_32_t>& key, const T& value) const {
+        const PhPoint<DIM, scalar_32_t>&, const T& value) const {
         return value._i % 2 == 0;
     }
-    [[nodiscard]] constexpr bool IsNodeValid(
-        const PhPoint<DIM, scalar_32_t>& prefix, int bits_to_ignore) const {
+    [[nodiscard]] constexpr bool IsNodeValid(const PhPoint<DIM, scalar_32_t>&, int) const {
         return true;
     }
 };
@@ -665,9 +665,10 @@ TEST(PhTreeFTest, TestWindowQueryManyMoving) {
     for (int i = -120; i < 120; i++) {
         TestPoint<dim> min{
             static_cast<float>(i * 10.), static_cast<float>(i * 9.), static_cast<float>(i * 11.)};
-        TestPoint<dim> max{static_cast<float>(i * 10 + query_length),
-                           static_cast<float>(i * 9 + query_length),
-                           static_cast<float>(i * 11 + query_length)};
+        TestPoint<dim> max{
+            static_cast<float>(i * 10 + query_length),
+            static_cast<float>(i * 9 + query_length),
+            static_cast<float>(i * 11 + query_length)};
         std::set<size_t> referenceResult;
         referenceQuery(points, min, max, referenceResult);
 
@@ -702,14 +703,15 @@ TEST(PhTreeFTest, TestWindowForEachQueryManyMoving) {
     for (int i = -120; i < 120; i++) {
         TestPoint<dim> min{
             static_cast<float>(i * 10.), static_cast<float>(i * 9.), static_cast<float>(i * 11.)};
-        TestPoint<dim> max{static_cast<float>(i * 10 + query_length),
-                           static_cast<float>(i * 9 + query_length),
-                           static_cast<float>(i * 11 + query_length)};
+        TestPoint<dim> max{
+            static_cast<float>(i * 10 + query_length),
+            static_cast<float>(i * 9 + query_length),
+            static_cast<float>(i * 11 + query_length)};
         std::set<size_t> referenceResult;
         referenceQuery(points, min, max, referenceResult);
 
         struct Counter {
-            void operator()(TestPoint<dim> key, Id& t) {
+            void operator()(TestPoint<dim>, Id& t) {
                 ++n_;
                 ASSERT_EQ(referenceResult.count(t._i), 1);
             }

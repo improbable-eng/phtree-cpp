@@ -80,7 +80,7 @@ class PhTreeV16 {
      *
      *  @param key The key for the new entry.
      *
-     *  @param __args  Arguments used to generate a new value.
+     *  @param args  Arguments used to generate a new value.
      *
      *  @return  A pair, whose first element points  to the possibly inserted pair,
      *           and whose second element is a bool that is true if the pair was actually inserted.
@@ -89,13 +89,13 @@ class PhTreeV16 {
      * effectively a map, so if an entry with the same key was already in the tree, returns that
      * entry instead of inserting a new one.
      */
-    template <typename... _Args>
-    std::pair<T&, bool> emplace(const KeyT& key, _Args&&... __args) {
+    template <typename... Args>
+    std::pair<T&, bool> emplace(const KeyT& key, Args&&... args) {
         auto* current_entry = &root_;
         bool is_inserted = false;
         while (current_entry->IsNode()) {
             current_entry =
-                current_entry->GetNode().Emplace(is_inserted, key, std::forward<_Args>(__args)...);
+                current_entry->GetNode().Emplace(is_inserted, key, std::forward<Args>(args)...);
         }
         num_entries_ += is_inserted;
         return {current_entry->GetValue(), is_inserted};
@@ -116,8 +116,8 @@ class PhTreeV16 {
      * erase(iter);
      * emplace_hint(iter, key2, value);  // the iterator can still be used as hint here
      */
-    template <typename ITERATOR, typename... _Args>
-    std::pair<T&, bool> emplace_hint(const ITERATOR& iterator, const KeyT& key, _Args&&... __args) {
+    template <typename ITERATOR, typename... Args>
+    std::pair<T&, bool> emplace_hint(const ITERATOR& iterator, const KeyT& key, Args&&... args) {
         // This function can be used to insert a value close to a known value
         // or close to a recently removed value. The hint can only be used if the new key is
         // inside one of the nodes provided by the hint iterator.
@@ -130,14 +130,14 @@ class PhTreeV16 {
 
         if (!iterator.GetParentNodeEntry()) {
             // No hint available, use standard emplace()
-            return emplace(key, std::forward<_Args>(__args)...);
+            return emplace(key, std::forward<Args>(args)...);
         }
 
         auto* parent_entry = iterator.GetParentNodeEntry();
         if (NumberOfDivergingBits(key, parent_entry->GetKey()) >
             parent_entry->GetNode().GetPostfixLen() + 1) {
             // replace higher up in the tree
-            return emplace(key, std::forward<_Args>(__args)...);
+            return emplace(key, std::forward<Args>(args)...);
         }
 
         // replace in node
@@ -145,7 +145,7 @@ class PhTreeV16 {
         bool is_inserted = false;
         while (current_entry->IsNode()) {
             current_entry =
-                current_entry->GetNode().Emplace(is_inserted, key, std::forward<_Args>(__args)...);
+                current_entry->GetNode().Emplace(is_inserted, key, std::forward<Args>(args)...);
         }
         num_entries_ += is_inserted;
         return {current_entry->GetValue(), is_inserted};

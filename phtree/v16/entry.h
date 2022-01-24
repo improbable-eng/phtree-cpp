@@ -20,10 +20,8 @@
 #include "../../phtree/common/common.h"
 #include "node.h"
 #include <cassert>
-#include <cstdint>
 #include <memory>
-#include <string>
-#include <variant>
+#include <optional>
 
 namespace improbable::phtree::v16 {
 
@@ -44,69 +42,85 @@ class Entry {
     using NodeT = Node<DIM, T, SCALAR>;
 
   public:
-    Entry() : kd_key_(), value_{std::in_place_type<ValueT>, T{}} {}
-
     /*
      * Construct entry with existing node.
      */
-    Entry(const KeyT& k, std::unique_ptr<NodeT>&& node)
-    : kd_key_{k}
-    , value_{
-          std::in_place_type<std::unique_ptr<NodeT>>, std::forward<std::unique_ptr<NodeT>>(node)} {}
+    Entry(const KeyT& k, std::unique_ptr<NodeT>&& node_ptr)
+    : kd_key_{k}, node_{std::move(node_ptr)}, value_{std::nullopt} {}
 
     /*
      * Construct entry with a new node.
      */
     Entry(bit_width_t infix_len, bit_width_t postfix_len)
-    : kd_key_()
-    , value_{
-          std::in_place_type<std::unique_ptr<NodeT>>,
-          std::make_unique<NodeT>(infix_len, postfix_len)} {}
+    : kd_key_(), node_{std::make_unique<NodeT>(infix_len, postfix_len)}, value_{std::nullopt} {}
+
+    /*
+     * Construct entry with existing T.
+     */
+    Entry(const KeyT& k, std::optional<ValueT>&& value)
+    : kd_key_{k}, node_{nullptr}, value_{std::move(value)} {}
 
     /*
      * Construct entry with new T or moved T.
      */
-    template <typename... _Args>
-    explicit Entry(const KeyT& k, _Args&&... __args)
-    : kd_key_{k}, value_{std::in_place_type<ValueT>, std::forward<_Args>(__args)...} {}
+    template <typename... Args>
+    explicit Entry(const KeyT& k, Args&&... args)
+    : kd_key_{k}, node_{nullptr}, value_{std::in_place, std::forward<Args>(args)...} {}
 
     [[nodiscard]] const KeyT& GetKey() const {
         return kd_key_;
     }
 
     [[nodiscard]] bool IsValue() const {
-        return std::holds_alternative<ValueT>(value_);
+        return value_.has_value();
     }
 
     [[nodiscard]] bool IsNode() const {
-        return std::holds_alternative<std::unique_ptr<NodeT>>(value_);
+        return node_.get() != nullptr;
     }
 
     [[nodiscard]] T& GetValue() const {
         assert(IsValue());
-        return const_cast<T&>(std::get<ValueT>(value_));
+        return const_cast<T&>(*value_);
     }
 
     [[nodiscard]] NodeT& GetNode() const {
         assert(IsNode());
-        return *std::get<std::unique_ptr<NodeT>>(value_);
+        return *node_;
+    }
+
+    void SetNode(std::unique_ptr<NodeT>&& node) {
+        assert(!IsNode());
+        node_ = std::move(node);
+        value_.reset();
+    }
+
+    [[nodiscard]] std::optional<ValueT>&& ExtractValue() {
+        assert(IsValue());
+        return std::move(value_);
+    }
+
+    [[nodiscard]] std::unique_ptr<NodeT>&& ExtractNode() {
+        assert(IsNode());
+        return std::move(node_);
     }
 
     void ReplaceNodeWithDataFromEntry(Entry&& other) {
         assert(IsNode());
         kd_key_ = other.GetKey();
 
-        // 'value_' points indirectly to 'entry' so we have to remove `entity's` content before
-        // assigning anything to `value_` here. Otherwise the assignment would destruct the previous
-        // content and, by reachability, `entity's` content.
-        auto old_node = std::get<std::unique_ptr<NodeT>>(value_).release();
-        value_ = std::move(other.value_);
-        delete old_node;
+        if (other.IsNode()) {
+            node_ = std::move(other.node_);
+        } else {
+            value_ = std::move(other.value_);
+            node_.reset();
+        }
     }
 
   private:
     KeyT kd_key_;
-    std::variant<ValueT, std::unique_ptr<NodeT>> value_;
+    std::unique_ptr<NodeT> node_;
+    std::optional<ValueT> value_;
 };
 }  // namespace improbable::phtree::v16
 

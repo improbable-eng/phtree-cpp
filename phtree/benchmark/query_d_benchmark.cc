@@ -120,7 +120,7 @@ void IndexBenchmark<DIM, QUERY_TYPE>::SetupWorld(benchmark::State& state) {
 
 template <dimension_t DIM, typename T>
 struct Counter {
-    void operator()(PointType<DIM> key, T& t) {
+    void operator()(PointType<DIM>, T&) {
         ++n_;
     }
 

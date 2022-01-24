@@ -42,7 +42,7 @@ class IntRng {
 struct IdObj {
     IdObj() = default;
 
-    explicit IdObj(const int i) : _i(i){};
+    explicit IdObj(const size_t i) : _i(static_cast<int>(i)){};
 
     bool operator==(IdObj& rhs) {
         return _i == rhs._i;

@@ -18,7 +18,7 @@ export MSYS2_ARG_CONV_EXCL="//..."
 function joinBy { perl -e '$s = shift @ARGV; print join($s, @ARGV);' "$@"; }
 
 function clangFormatLocation() {
-  local CLANG_FORMAT_VERSION=9.0.0
+  local CLANG_FORMAT_VERSION=10.0.0
   # Use find to get the path for either clang-format (macOS / Linux) or clang-format.exe (Windows)
   local CLANG_FORMAT_EXE=clang-format
   local CLANG_FORMAT_SHIM=clang-format

@@ -91,7 +91,7 @@ void IndexBenchmark<DIM>::SetupWorld(benchmark::State& state) {
 }
 
 template <dimension_t DIM>
-void IndexBenchmark<DIM>::Insert(benchmark::State& state, PhTreeD<DIM, int>& tree) {
+void IndexBenchmark<DIM>::Insert(benchmark::State&, PhTreeD<DIM, int>& tree) {
     for (int i = 0; i < num_entities_; ++i) {
         tree.emplace(points_[i], i);
     }

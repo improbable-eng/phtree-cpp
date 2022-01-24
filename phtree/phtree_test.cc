@@ -62,7 +62,7 @@ struct Id {
         ++default_construct_count_;
     }
 
-    explicit Id(const int i) : _i{i} {
+    explicit Id(const size_t i) : _i{static_cast<int>(i)} {
         ++construct_count_;
     };
 
@@ -76,12 +76,12 @@ struct Id {
         _i = other._i;
     }
 
-    bool operator==(const Id& rhs) {
+    bool operator==(const Id& rhs) const {
         ++copy_assign_count_;
         return _i == rhs._i;
     }
 
-    bool operator==(Id&& rhs) {
+    bool operator==(Id&& rhs) const {
         ++move_assign_count_;
         return _i == rhs._i;
     }
@@ -386,7 +386,7 @@ TEST(PhTreeTest, TestSquareBrackets) {
         ASSERT_EQ(0, tree[p]._i);
         ASSERT_EQ(tree.count(p), 1);
         if (i % 2 == 0) {
-            tree[p]._i = i;
+            tree[p]._i = (int)i;
         } else {
             tree[p] = id;
         }
@@ -430,7 +430,7 @@ template <dimension_t DIM>
 void populate(TestTree<DIM, Id>& tree, std::vector<TestPoint<DIM>>& points, size_t N) {
     generateCube(points, N);
     for (size_t i = 0; i < N; i++) {
-        ASSERT_TRUE(tree.emplace(points[i], (int)i).second);
+        ASSERT_TRUE(tree.emplace(points[i], i).second);
     }
     ASSERT_EQ(N, tree.size());
 }
@@ -601,10 +601,10 @@ TEST(PhTreeTest, TestExtent) {
 
 template <dimension_t DIM, typename T>
 struct FilterEvenId {
-    [[nodiscard]] constexpr bool IsEntryValid(const PhPoint<DIM>& key, const T& value) const {
+    [[nodiscard]] constexpr bool IsEntryValid(const PhPoint<DIM>&, const T& value) const {
         return value._i % 2 == 0;
     }
-    [[nodiscard]] constexpr bool IsNodeValid(const PhPoint<DIM>& prefix, int bits_to_ignore) const {
+    [[nodiscard]] constexpr bool IsNodeValid(const PhPoint<DIM>&, int) const {
         return true;
     }
 };
@@ -787,7 +787,7 @@ TEST(PhTreeTest, TestWindowForEachManyMoving) {
         referenceQuery(points, min, max, referenceResult);
 
         struct Counter {
-            void operator()(TestPoint<dim> key, Id& t) {
+            void operator()(TestPoint<dim>, Id& t) {
                 ++n_;
                 ASSERT_EQ(referenceResult.count(t._i), 1);
             }

@@ -49,7 +49,7 @@ class PhTree {
      *
      *  @param key The key for the new entry.
      *
-     *  @param __args  Arguments used to generate a new value.
+     *  @param args  Arguments used to generate a new value.
      *
      *  @return  A pair, whose first element points  to the possibly inserted pair,
      *           and whose second element is a bool that is true if the pair was actually inserted.
@@ -58,9 +58,9 @@ class PhTree {
      * effectively a map, so if an entry with the same key was already in the tree, returns that
      * entry instead of inserting a new one.
      */
-    template <typename... _Args>
-    std::pair<T&, bool> emplace(const Key& key, _Args&&... __args) {
-        return tree_.emplace(converter_.pre(key), std::forward<_Args>(__args)...);
+    template <typename... Args>
+    std::pair<T&, bool> emplace(const Key& key, Args&&... args) {
+        return tree_.emplace(converter_.pre(key), std::forward<Args>(args)...);
     }
 
     /*
@@ -78,9 +78,9 @@ class PhTree {
      * erase(iter);
      * emplace_hint(iter, key2, value);  // the iterator can still be used as hint here
      */
-    template <typename ITERATOR, typename... _Args>
-    std::pair<T&, bool> emplace_hint(const ITERATOR& iterator, const Key& key, _Args&&... __args) {
-        return tree_.emplace_hint(iterator, converter_.pre(key), std::forward<_Args>(__args)...);
+    template <typename ITERATOR, typename... Args>
+    std::pair<T&, bool> emplace_hint(const ITERATOR& iterator, const Key& key, Args&&... args) {
+        return tree_.emplace_hint(iterator, converter_.pre(key), std::forward<Args>(args)...);
     }
 
     /*
