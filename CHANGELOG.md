@@ -6,16 +6,19 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 ### Added
-- FilterSphere for filtering by sphere constraint (by ctbur)
+- FilterSphere for filtering by sphere constraint (by ctbur) #16
+- IEEE converter for 32float, see distance.h (by ctbur) #18
+
 ### Changed
-- Fixed imports  `<climits>` -> `<limits>` (by ctbur)
-- Cleaned up build scripts
-- Fixed warnings:
+- Performance improvement for updates and queries: removed use of `std::variant`. #23
+- Fixed imports  `<climits>` -> `<limits>` (by ctbur) #15
+- Cleaned up build scripts #21
+- Fixed warnings: #20
   - "unused function argument" warnings
   - gcc/clang warnings
   - MSVC warnings
   - reserved identifier warnings (identifiers starting with `_`)
-- typos in README.md 
+- typos in README.md #22
 
 ## [1.0.1] - 2021-05-06
 ### Changed
@@ -60,7 +63,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Nothing.
 
 
-[Unreleased]: https://github.com/improbable-eng/phtree-cpp/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/improbable-eng/phtree-cpp/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/improbable-eng/phtree-cpp/compare/v1.0.0...v1.1.0
 [1.0.1]: https://github.com/improbable-eng/phtree-cpp/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/improbable-eng/phtree-cpp/compare/v0.1.0...v1.0.0
-[0.2.0]: https://github.com/improbable-eng/phtree-cpp/compare/v0.1.0...v0.2.0
