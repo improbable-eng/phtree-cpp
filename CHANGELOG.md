@@ -5,20 +5,23 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+Nothing yet.
+
+## [1.1.0] - 2022-01-25
 ### Added
-- FilterSphere for filtering by sphere constraint (by ctbur) #16
-- IEEE converter for 32float, see distance.h (by ctbur) #18
+- FilterSphere for filtering by sphere constraint (by ctbur) [#16](https://github.com/improbable-eng/phtree-cpp/pull/16)
+- IEEE converter for 32bit float, see `distance.h` (by ctbur) [#18](https://github.com/improbable-eng/phtree-cpp/pull/18)
 
 ### Changed
-- Performance improvement for updates and queries: removed use of `std::variant`. #23
-- Fixed imports  `<climits>` -> `<limits>` (by ctbur) #15
-- Cleaned up build scripts #21
-- Fixed warnings: #20
+- Performance improvement for updates and queries: removed use of `std::variant`. [#23](https://github.com/improbable-eng/phtree-cpp/pull/23)
+- Fixed imports  `<climits>` -> `<limits>` (by ctbur) [#15](https://github.com/improbable-eng/phtree-cpp/pull/15)
+- Cleaned up build scripts [#21](https://github.com/improbable-eng/phtree-cpp/pull/21)
+- Fixed warnings: [#20](https://github.com/improbable-eng/phtree-cpp/pull/20)
   - "unused function argument" warnings
   - gcc/clang warnings
   - MSVC warnings
   - reserved identifier warnings (identifiers starting with `_`)
-- typos in README.md #22
+- typos in README.md [#22](https://github.com/improbable-eng/phtree-cpp/pull/22)
 
 ## [1.0.1] - 2021-05-06
 ### Changed
