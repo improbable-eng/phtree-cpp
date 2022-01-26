@@ -1,4 +1,5 @@
-**Note: for updates please also check the [fork](https://github.com/tzaeschke/phtree-cpp) by the original PH-Tree developer.**
+**Note: for updates please also check the [fork](https://github.com/tzaeschke/phtree-cpp) by the original PH-Tree
+developer.**
 
 # PH-Tree C++
 
@@ -13,6 +14,7 @@ is limited to 63 dimensions.
 
 The API ist mostly analogous to STL's `std::map`, see function descriptions for details.
 
+This is [not an exact implementations](#impl-details) of the original PH-Tree design.
 Theoretical background is listed [here](#theory).
 
 More information about PH-Trees (including a Java implementation) is available [here](http://www.phtree.org).
@@ -23,45 +25,47 @@ More information about PH-Trees (including a Java implementation) is available [
 
 ### API Usage
 
-[Key Types](#key-types)
+* [Key Types](#key-types)
 
-[Basic operations](#basic-operations)
+* [Basic operations](#basic-operations)
 
-[Queries](#queries)
+* [Queries](#queries)
 
-* [for_each](#for-each-example)
+    * [for_each](#for-each-example)
 
-* [Iterators](#iterator-examples)
+    * [Iterators](#iterator-examples)
 
-* [Filters](#filters)
+    * [Filters](#filters)
 
-* [Distance Functions](#distance-functions)
+    * [Distance Functions](#distance-functions)
 
-[Converters](#converters)
+* [Converters](#converters)
 
-[Custom Key Types](#custom-key-types)
+    * [Custom Key Types](#custom-key-types)
 
-[Restrictions](#restrictions)
+* [Restrictions](#restrictions)
 
-[Troubleshooting / FAQ](#troubleshooting-faq)
+* [Troubleshooting / FAQ](#troubleshooting-faq)
 
 ### Performance
 
-[When to use a PH-Tree](#when-to-use-a-ph-tree)
+* [When to use a PH-Tree](#when-to-use-a-ph-tree)
 
-[Optimising Performance](#optimising-performance)
+* [Optimising Performance](#optimising-performance)
 
 ### Compiling / Building
 
-[Build system & dependencies](#build-system-and-dependencies)
+* [Build system & dependencies](#build-system-and-dependencies)
 
-[bazel](#bazel)
+* [bazel](#bazel)
 
-[cmake](#cmake)
+* [cmake](#cmake)
 
-## Further Resources
+### Technical Details & Further Resources
 
-[Theory](#theory)
+* [Implementation Details](#impl-details)
+
+* [Theory](#theory)
 
 ----------------------------------
 
@@ -69,7 +73,7 @@ More information about PH-Trees (including a Java implementation) is available [
 
 <a id="key-types"></a>
 
-#### Key Types
+### Key Types
 
 The **PH-Tree Map** supports out of the box five types:
 
@@ -94,7 +98,7 @@ The `PhTree` and `PhTreeMultiMap` types are available from `phtree.h` and `phtre
 
 <a id="basic-operations"></a>
 
-#### Basic Operations
+### Basic Operations
 
 ```C++
 class MyData { ... };
@@ -126,7 +130,7 @@ tree.estimate_count(query);
 
 <a id="queries"></a>
 
-#### Queries
+### Queries
 
 * For-each over all elements: `tree.fore_each(callback);`
 * Iterator over all elements: `auto iterator = tree.begin();`
@@ -225,7 +229,7 @@ for (auto it = tree.begin_knn_query(5, {1, 1, 1}, DistanceL1<3>())); it != tree.
 
 <a id="converters"></a>
 
-#### Converters
+### Converters
 
 The PH-Tree can internally only process integer keys. In order to use floating point coordinates, the floating point
 coordinates must be converted to integer coordinates. The `PhTreeD` and `PhTreeBoxD` use by default the
@@ -349,7 +353,7 @@ void test() {
 
 <a id="restrictions"></a>
 
-#### Restrictions
+### Restrictions
 
 * **C++**: Supports value types of `T` and `T*`, but not `T&`
 * **C++**: Return types of `find()`, `emplace()`, ... differ slightly from `std::map`, they have function `first()`
@@ -548,7 +552,22 @@ cmake --build .
 ./example/Example
 ```
 
-## Further Resources
+## Technical Details & Further Resources
+
+<a id="impl-details"></a>
+
+### Implementation Details
+
+This implementation is not an exact implementation of the original design (see [theory](#theory)). Notably the following
+is not implemented:
+
+* **Prefix sharing**. This implementation does not reduce memory by avoiding duplicate storage of shared prefixes. Instead,
+  all coordinates are stored in full.
+* **HC-iteration**. This implementation does not implement HC-iteration for querying in high-dimensional data.
+* **B-Tree Nodes**. For high dimensional data this implementation simply uses an ordered map.
+
+All these may or may not be implemented in the future.
+
 
 <a id="theory"></a>
 
