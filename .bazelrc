@@ -29,6 +29,10 @@ build:ci --announce_rc
 build:linux --copt="-fvisibility=hidden"
 build:linux --copt="-fno-omit-frame-pointer"  # for friendlier stack traces
 build:linux --copt="-Wno-error"
+build:linux --copt="-Wall"
+build:linux --copt="-Wextra"
+build:linux --copt="-Werror=return-type"
+build:linux --copt="-Werror=switch"
 build:linux --copt="-mavx"
 build:linux --copt="-Wsequence-point"
 build:linux --copt="-Wsign-compare"
@@ -55,12 +59,9 @@ build:windows --action_env TMP=C:/Windows/Temp
 build:windows --action_env TEMP=C:/Windows/Temp
 build:windows --cxxopt="/DWIN32_LEAN_AND_MEAN"
 
-# Config for when tests are running in a "slow" environment such as Valgrind or TSan
-build:slow-tests --copt="-DIMPROBABLE_SLOW_TEST"
-
 # Valgrind config.
 build:valgrind-memcheck --config=linux
-build:valgrind-memcheck --config=slow-tests
+build:valgrind-memcheck --define valgrind-memcheck=true
 test:valgrind-memcheck --run_under=//tools/runners/sanitizers/valgrind-memcheck
 run:valgrind-memcheck --run_under=//tools/runners/sanitizers/valgrind-memcheck
 
@@ -81,7 +82,6 @@ test:asan --test_env="ASAN_SYMBOLIZER_PATH=/usr/lib/llvm-9/bin/llvm-symbolizer"
 test:asan --run_under=//tools/runners/sanitizers/asan
 
 build:tsan --config=base-sanitizer
-build:tsan --config=slow-tests
 build:tsan --copt="-O1"
 build:tsan --copt="-fno-optimize-sibling-calls"
 build:tsan --copt="-fsanitize=thread"

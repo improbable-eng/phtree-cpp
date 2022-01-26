@@ -439,9 +439,10 @@ TEST(PhTreeFTest, TestUpdateWithEmplace) {
 
     for (auto& p : points) {
         auto pOld = p;
-        TestPoint<dim> pNew{static_cast<float>(pOld[0] + delta),
-                            static_cast<float>(pOld[1] + delta),
-                            static_cast<float>(pOld[2] + delta)};
+        TestPoint<dim> pNew{
+            static_cast<float>(pOld[0] + delta),
+            static_cast<float>(pOld[1] + delta),
+            static_cast<float>(pOld[2] + delta)};
         int n = tree.erase(pOld);
         ASSERT_EQ(1, n);
         tree.emplace(pNew, 42);
@@ -516,11 +517,10 @@ TEST(PhTreeFTest, TestExtent) {
 template <dimension_t DIM, typename T>
 struct FilterEvenId {
     [[nodiscard]] constexpr bool IsEntryValid(
-        const PhPoint<DIM, scalar_32_t>& key, const T& value) const {
+        const PhPoint<DIM, scalar_32_t>&, const T& value) const {
         return value._i % 2 == 0;
     }
-    [[nodiscard]] constexpr bool IsNodeValid(
-        const PhPoint<DIM, scalar_32_t>& prefix, int bits_to_ignore) const {
+    [[nodiscard]] constexpr bool IsNodeValid(const PhPoint<DIM, scalar_32_t>&, int) const {
         return true;
     }
 };
@@ -665,9 +665,10 @@ TEST(PhTreeFTest, TestWindowQueryManyMoving) {
     for (int i = -120; i < 120; i++) {
         TestPoint<dim> min{
             static_cast<float>(i * 10.), static_cast<float>(i * 9.), static_cast<float>(i * 11.)};
-        TestPoint<dim> max{static_cast<float>(i * 10 + query_length),
-                           static_cast<float>(i * 9 + query_length),
-                           static_cast<float>(i * 11 + query_length)};
+        TestPoint<dim> max{
+            static_cast<float>(i * 10 + query_length),
+            static_cast<float>(i * 9 + query_length),
+            static_cast<float>(i * 11 + query_length)};
         std::set<size_t> referenceResult;
         referenceQuery(points, min, max, referenceResult);
 
@@ -702,14 +703,15 @@ TEST(PhTreeFTest, TestWindowForEachQueryManyMoving) {
     for (int i = -120; i < 120; i++) {
         TestPoint<dim> min{
             static_cast<float>(i * 10.), static_cast<float>(i * 9.), static_cast<float>(i * 11.)};
-        TestPoint<dim> max{static_cast<float>(i * 10 + query_length),
-                           static_cast<float>(i * 9 + query_length),
-                           static_cast<float>(i * 11 + query_length)};
+        TestPoint<dim> max{
+            static_cast<float>(i * 10 + query_length),
+            static_cast<float>(i * 9 + query_length),
+            static_cast<float>(i * 11 + query_length)};
         std::set<size_t> referenceResult;
         referenceQuery(points, min, max, referenceResult);
 
         struct Counter {
-            void operator()(TestPoint<dim> key, Id& t) {
+            void operator()(TestPoint<dim>, Id& t) {
                 ++n_;
                 ASSERT_EQ(referenceResult.count(t._i), 1);
             }
@@ -778,18 +780,6 @@ TEST(PhTreeFTest, TestWindowQueryFilter) {
     ASSERT_GE(50, num_e);
 }
 
-template <dimension_t DIM>
-struct DistanceEuclideanFloat {
-    double operator()(const TestPoint<DIM>& v1, const TestPoint<DIM>& v2) const {
-        double sum2 = 0;
-        for (dimension_t i = 0; i < DIM; i++) {
-            double d2 = double(v1[i] - v2[i]);
-            sum2 += d2 * d2;
-        }
-        return sqrt(sum2);
-    };
-};
-
 TEST(PhTreeFTest, TestKnnQuery) {
     // deliberately allowing outside of main points range
     FloatRng rng(-1500, 1500);
@@ -814,7 +804,7 @@ TEST(PhTreeFTest, TestKnnQuery) {
 
         size_t n = 0;
         double prevDist = -1;
-        auto q = tree.begin_knn_query(Nq, center, DistanceEuclideanFloat<3>());
+        auto q = tree.begin_knn_query(Nq, center, DistanceEuclidean<3>());
         while (q != tree.end()) {
             // just read the entry
             auto& e = *q;
@@ -897,8 +887,8 @@ TEST(PhTreeFTest, TestKnnQueryIterator) {
 
     TestPoint<dim> center{rng.next(), rng.next(), rng.next()};
     size_t n = 0;
-    auto q1 = tree.begin_knn_query(Nq, center, DistanceEuclideanFloat<3>());
-    auto q2 = tree.begin_knn_query(Nq, center, DistanceEuclideanFloat<3>());
+    auto q1 = tree.begin_knn_query(Nq, center, DistanceEuclidean<3>());
+    auto q2 = tree.begin_knn_query(Nq, center, DistanceEuclidean<3>());
     while (q1 != tree.end()) {
         ASSERT_NE(q1, tree.end());
         ASSERT_NE(q2, tree.end());
@@ -924,7 +914,7 @@ TEST(PhTreeFTest, SmokeTestPoint0) {
     auto q_extent = tree.begin();
     ASSERT_EQ(q_extent, tree.end());
 
-    auto q_knn = tree.begin_knn_query(10, p, DistanceEuclideanFloat<3>());
+    auto q_knn = tree.begin_knn_query(10, p, DistanceEuclidean<3>());
     ASSERT_EQ(q_knn, tree.end());
 
     ASSERT_EQ(0, tree.erase(p));
@@ -972,7 +962,7 @@ TEST(PhTreeFTest, SmokeTestPointInfinity) {
     ++q_extent;
     ASSERT_EQ(q_extent, tree.end());
 
-    auto q_knn = tree.begin_knn_query(10, p, DistanceEuclideanFloat<3>());
+    auto q_knn = tree.begin_knn_query(10, p, DistanceEuclidean<3>());
     ASSERT_EQ(1, q_knn->_i);
     ++q_knn;
     ASSERT_NE(q_knn, tree.end());

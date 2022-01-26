@@ -243,7 +243,7 @@ class PhTreeMultiMap {
      *
      *  @param key The key for the new entry.
      *
-     *  @param __args  Arguments used to generate a new value.
+     *  @param args  Arguments used to generate a new value.
      *
      *  @return  A pair, whose first element points to the possibly inserted pair,
      *           and whose second element is a bool that is true if the pair was actually inserted.
@@ -252,10 +252,10 @@ class PhTreeMultiMap {
      * effectively a multi-set, so if an entry with the same key/value was already in the tree, it
      * returns that entry instead of inserting a new one.
      */
-    template <typename... _Args>
-    std::pair<T&, bool> emplace(const Key& key, _Args&&... __args) {
+    template <typename... Args>
+    std::pair<T&, bool> emplace(const Key& key, Args&&... args) {
         auto& outer_iter = tree_.emplace(converter_.pre(key)).first;
-        auto bucket_iter = outer_iter.emplace(std::forward<_Args>(__args)...);
+        auto bucket_iter = outer_iter.emplace(std::forward<Args>(args)...);
         size_ += bucket_iter.second ? 1 : 0;
         return {const_cast<T&>(*bucket_iter.first), bucket_iter.second};
     }
@@ -275,20 +275,20 @@ class PhTreeMultiMap {
      * erase(iter);
      * emplace_hint(iter, key2, value);  // the iterator can still be used as hint here
      */
-    template <typename ITERATOR, typename... _Args>
-    std::pair<T&, bool> emplace_hint(const ITERATOR& iterator, const Key& key, _Args&&... __args) {
+    template <typename ITERATOR, typename... Args>
+    std::pair<T&, bool> emplace_hint(const ITERATOR& iterator, const Key& key, Args&&... args) {
         auto result_ph = tree_.emplace_hint(iterator.GetIteratorOfPhTree(), converter_.pre(key));
         auto& bucket = result_ph.first;
         if (result_ph.second) {
             // new bucket
-            auto result = bucket.emplace(std::forward<_Args>(__args)...);
+            auto result = bucket.emplace(std::forward<Args>(args)...);
             size_ += result.second;
             return {const_cast<T&>(*result.first), result.second};
         } else {
             // existing bucket -> we can use emplace_hint with iterator
             size_t old_size = bucket.size();
             auto result =
-                bucket.emplace_hint(iterator.GetIteratorOfBucket(), std::forward<_Args>(__args)...);
+                bucket.emplace_hint(iterator.GetIteratorOfBucket(), std::forward<Args>(args)...);
             bool success = old_size < bucket.size();
             size_ += success;
             return {const_cast<T&>(*result), success};
@@ -328,7 +328,7 @@ class PhTreeMultiMap {
     template <typename QUERY_TYPE = DEFAULT_QUERY_TYPE>
     size_t estimate_count(QueryBox query_box, QUERY_TYPE query_type = QUERY_TYPE()) const {
         size_t n = 0;
-        auto counter_lambda = [&](const Key& key, const BUCKET& bucket) { n += bucket.size(); };
+        auto counter_lambda = [&](const Key&, const BUCKET& bucket) { n += bucket.size(); };
         tree_.for_each(query_type(converter_.pre_query(query_box)), counter_lambda);
         return n;
     }
@@ -661,8 +661,7 @@ class PhTreeMultiMap {
         // The original filter is then used when we iterate over the entries of a bucket. At this
         // point, we do not need to check IsNodeValid anymore for each entry (see `IteratorNormal`).
         struct FilterWrapper {
-            [[nodiscard]] constexpr bool IsEntryValid(
-                const KeyInternal& key, const BUCKET& value) const {
+            [[nodiscard]] constexpr bool IsEntryValid(const KeyInternal&, const BUCKET&) const {
                 // This filter is checked in the Iterator.
                 return true;
             }

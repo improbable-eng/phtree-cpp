@@ -24,9 +24,9 @@
 #include "flat_sparse_map.h"
 #include "tree_stats.h"
 #include <cassert>
-#include <climits>
 #include <cmath>
 #include <functional>
+#include <limits>
 #include <sstream>
 
 namespace improbable::phtree {
@@ -59,6 +59,15 @@ struct DistanceEuclidean {
         double sum2 = 0;
         for (dimension_t i = 0; i < DIM; ++i) {
             double d2 = p1[i] - p2[i];
+            sum2 += d2 * d2;
+        }
+        return sqrt(sum2);
+    };
+
+    double operator()(const PhPointF<DIM>& v1, const PhPointF<DIM>& v2) const {
+        double sum2 = 0;
+        for (dimension_t i = 0; i < DIM; i++) {
+            double d2 = double(v1[i] - v2[i]);
             sum2 += d2 * d2;
         }
         return sqrt(sum2);
