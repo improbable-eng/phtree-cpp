@@ -229,6 +229,8 @@ class FilterParaboloid {
     using ScalarInternal = typename CONVERTER::ScalarInternal;
     using ScalarExternal = typename CONVERTER::ScalarExternal;
 
+    static constexpr auto DIM = CONVERTER::DimInternal;
+
   public:
     /*
      * @param axis The axis along which the paraboloid is aligned.
@@ -263,13 +265,16 @@ class FilterParaboloid {
 
         // radius of paraboloid at axis offset of point
         ScalarExternal diff_axis = point[axis_] - vertex_external_[axis_];
-        ScalarExternal radius = sqrt(diff_axis / scale_factor_);
+        ScalarExternal radius_sqr = diff_axis / scale_factor_;
 
         // point projected onto axis of paraboloid
         KeyExternal projected = vertex_external_;
         projected[axis_] = point[axis_];
 
-        return distance_function_(projected, point) <= radius;
+        // distance of point to the axis of the paraboloid
+        ScalarExternal dist_point_to_axis = distance_function_(projected, point);
+
+        return dist_point_to_axis * dist_point_to_axis <= radius_sqr;
     }
 
     /*
@@ -305,7 +310,7 @@ class FilterParaboloid {
         }
 
         KeyInternal closest_to_axis;
-        for (size_t i = 0; i < prefix.size(); ++i) {
+        for (size_t i = 0; i < DIM; ++i) {
             if (i == axis_) {
                 closest_to_axis[i] = coord_max_vertex_dist;
             } else {
@@ -327,9 +332,12 @@ class FilterParaboloid {
 
         // radius of paraboloid at axis offset of closest_to_axis
         ScalarExternal diff_axis = closest_point[axis_] - vertex_external_[axis_];
-        ScalarExternal radius = sqrt(diff_axis / scale_factor_);
+        ScalarExternal radius_sqr = sqrt(diff_axis / scale_factor_);
 
-        return distance_function_(projected_point, closest_point) <= radius;
+        // distance of point to the axis of the paraboloid
+        ScalarExternal dist_point_to_axis = distance_function_(projected_point, closest_point);
+
+        return dist_point_to_axis * dist_point_to_axis <= radius_sqr;
     }
 
   private:
