@@ -115,7 +115,7 @@ void IndexBenchmark<DIM>::SetupWorld(benchmark::State& state) {
 }
 
 template <dimension_t DIM>
-int IndexBenchmark<DIM>::QueryWorldCount(benchmark::State& state) {
+int IndexBenchmark<DIM>::QueryWorldCount(benchmark::State&) {
     static int pos = 0;
     pos = (pos + 1) % num_entities_;
     bool found = true;
@@ -130,7 +130,7 @@ int IndexBenchmark<DIM>::QueryWorldCount(benchmark::State& state) {
 }
 
 template <dimension_t DIM>
-int IndexBenchmark<DIM>::QueryWorldFind(benchmark::State& state) {
+int IndexBenchmark<DIM>::QueryWorldFind(benchmark::State&) {
     static int pos = 0;
     pos = (pos + 1) % num_entities_;
     bool found = true;

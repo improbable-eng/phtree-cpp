@@ -145,35 +145,35 @@ class Node {
      * The scenarios in detail:
      *
      * If there is no entry at the position of 'hc_pos', a new entry is inserted. The new entry is
-     * constructed from a constructor of T that accepts the arguments __args. Also, 'is_inserted' is
+     * constructed from a constructor of T that accepts the arguments `args`. Also, 'is_inserted' is
      * set top 'true'.
      *
-     * If there is a is a entry with a value T at 'hc_pos', that value is returned. The value is
+     * If there is an entry with a value T at 'hc_pos', that value is returned. The value is
      * _not_ overwritten.
      *
-     * If there is a child node at the position of 'hc_pos', the child node's prefix is is analysed.
+     * If there is a child node at the position of 'hc_pos', the child node's prefix is analysed.
      * If the prefix indicates that the new value would end up inside the child node or any of its
      * children, then the child node is returned for further traversal.
      * If the child nodes' prefix is different, then a new node is created. The new node contains
-     * the child node and a new key/value entry constructed with __args. The new node is inserted in
+     * the child node and a new key/value entry constructed with `args`. The new node is inserted in
      * the current node at the position of the former child node. The new value is returned and
      * 'is_inserted' is set to 'true'.
      *
      * @param is_inserted The function will set this to true if a new value was inserted
      * @param key The key for which a new value should be inserted.
-     * @param __args Constructor arguments for creating a value T that can be inserted for the key.
+     * @param args Constructor arguments for creating a value T that can be inserted for the key.
      */
-    template <typename... _Args>
-    EntryT* Emplace(bool& is_inserted, const KeyT& key, _Args&&... __args) {
+    template <typename... Args>
+    EntryT* Emplace(bool& is_inserted, const KeyT& key, Args&&... args) {
         hc_pos_t hc_pos = CalcPosInArray(key, GetPostfixLen());
-        auto emplace_result = entries_.try_emplace(hc_pos, key, std::forward<_Args>(__args)...);
+        auto emplace_result = entries_.try_emplace(hc_pos, key, std::forward<Args>(args)...);
         auto& entry = emplace_result.first->second;
         // Return if emplace succeed, i.e. there was no entry.
         if (emplace_result.second) {
             is_inserted = true;
             return &entry;
         }
-        return HandleCollision(entry, is_inserted, key, std::forward<_Args>(__args)...);
+        return HandleCollision(entry, is_inserted, key, std::forward<Args>(args)...);
     }
 
     /*
@@ -280,18 +280,20 @@ class Node {
     }
 
   private:
-    template <typename... _Args>
-    auto& WriteValue(hc_pos_t hc_pos, const KeyT& new_key, _Args&&... __args) {
-        return entries_.try_emplace(hc_pos, new_key, std::forward<_Args>(__args)...).first->second;
+    template <typename... Args>
+    auto& WriteValue(hc_pos_t hc_pos, const KeyT& new_key, Args&&... args) {
+        return entries_.try_emplace(hc_pos, new_key, std::forward<Args>(args)...).first->second;
     }
 
-    void WriteEntry(hc_pos_t hc_pos, EntryT&& entry) {
+    void WriteEntry(hc_pos_t hc_pos, EntryT& entry) {
         if (entry.IsNode()) {
             auto& node = entry.GetNode();
             bit_width_t new_subnode_infix_len = postfix_len_ - node.postfix_len_ - 1;
             node.SetInfixLen(new_subnode_infix_len);
+            entries_.try_emplace(hc_pos, entry.GetKey(), entry.ExtractNode());
+        } else {
+            entries_.try_emplace(hc_pos, entry.GetKey(), entry.ExtractValue());
         }
-        entries_.try_emplace(hc_pos, std::move(entry));
     }
 
     /*
@@ -301,16 +303,16 @@ class Node {
      * @param is_inserted Output: This will be set to 'true' by this function if a new entry was
      * inserted by this function.
      * @param new_key The key of the entry to be inserted
-     * @param __args The constructor arguments for a new value T of a the new entry to be inserted
+     * @param args The constructor arguments for a new value T of a the new entry to be inserted
      * @return A Entry that may contain a child node, a newly created entry or an existing entry.
      * A child node indicates that no entry was inserted, but the caller should try inserting into
      * the child node. A newly created entry (indicated by is_inserted=true) indicates successful
      * insertion. An existing entry (indicated by is_inserted=false) indicates that there is already
      * an entry with the exact same key as new_key, so insertion has failed.
      */
-    template <typename... _Args>
+    template <typename... Args>
     auto* HandleCollision(
-        EntryT& existing_entry, bool& is_inserted, const KeyT& new_key, _Args&&... __args) {
+        EntryT& existing_entry, bool& is_inserted, const KeyT& new_key, Args&&... args) {
         assert(!is_inserted);
         // We have two entries in the same location (local pos).
         // Now we need to compare the keys.
@@ -323,10 +325,7 @@ class Node {
                 if (max_conflicting_bits > sub_node.GetPostfixLen() + 1) {
                     is_inserted = true;
                     return InsertSplit(
-                        existing_entry,
-                        new_key,
-                        max_conflicting_bits,
-                        std::forward<_Args>(__args)...);
+                        existing_entry, new_key, max_conflicting_bits, std::forward<Args>(args)...);
                 }
             }
             // No infix conflict, just traverse subnode
@@ -336,19 +335,19 @@ class Node {
             if (max_conflicting_bits > 0) {
                 is_inserted = true;
                 return InsertSplit(
-                    existing_entry, new_key, max_conflicting_bits, std::forward<_Args>(__args)...);
+                    existing_entry, new_key, max_conflicting_bits, std::forward<Args>(args)...);
             }
             // perfect match -> return existing
         }
         return &existing_entry;
     }
 
-    template <typename... _Args>
+    template <typename... Args>
     auto* InsertSplit(
         EntryT& current_entry,
         const KeyT& new_key,
         bit_width_t max_conflicting_bits,
-        _Args&&... __args) {
+        Args&&... args) {
         const auto current_key = current_entry.GetKey();
 
         // determine length of infix
@@ -359,14 +358,11 @@ class Node {
         hc_pos_t pos_sub_2 = CalcPosInArray(current_key, new_postfix_len);
 
         // Move key/value into subnode
-        new_sub_node->WriteEntry(pos_sub_2, std::move(current_entry));
-        auto& new_entry =
-            new_sub_node->WriteValue(pos_sub_1, new_key, std::forward<_Args>(__args)...);
+        new_sub_node->WriteEntry(pos_sub_2, current_entry);
+        auto& new_entry = new_sub_node->WriteValue(pos_sub_1, new_key, std::forward<Args>(args)...);
 
         // Insert new node into local node
-        // We use new_key because current_key has been moved().
-        // TODO avoid reassigning the key here, this is unnecessary.
-        current_entry = {new_key, std::move(new_sub_node)};
+        current_entry.SetNode(std::move(new_sub_node));
         return &new_entry;
     }
 

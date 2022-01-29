@@ -42,9 +42,9 @@ class IntRng {
 struct Id {
     Id() = default;
 
-    explicit Id(const int i) : _i(i){};
+    explicit Id(const size_t i) : _i((int)i){};
 
-    bool operator==(Id& rhs) {
+    bool operator==(Id& rhs) const {
         return _i == rhs._i;
     }
 
@@ -467,7 +467,7 @@ TEST(PhTreeTestPtr, TestUpdateWithEmplace) {
     for (auto& p : points) {
         auto pOld = p;
         PhPoint<dim> pNew{pOld[0] + delta, pOld[1] + delta, pOld[2] + delta};
-        int n = tree.erase(pOld);
+        size_t n = tree.erase(pOld);
         ASSERT_EQ(1, n);
         tree.emplace(pNew, new Id(42));
         ASSERT_EQ(1, tree.count(pNew));
@@ -511,10 +511,10 @@ TEST(PhTreeTestPtr, TestExtent) {
 
 template <dimension_t DIM, typename T>
 struct PhFilterEvenId {
-    [[nodiscard]] constexpr bool IsEntryValid(const PhPoint<DIM>& key, const T& value) const {
+    [[nodiscard]] constexpr bool IsEntryValid(const PhPoint<DIM>&, const T& value) const {
         return value->_i % 2 == 0;
     }
-    [[nodiscard]] constexpr bool IsNodeValid(const PhPoint<DIM>& prefix, int bits_to_ignore) const {
+    [[nodiscard]] constexpr bool IsNodeValid(const PhPoint<DIM>&, int) const {
         return true;
     }
 };

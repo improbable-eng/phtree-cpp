@@ -445,10 +445,10 @@ TEST(PhTreeTestConst, TestExtent) {
 
 template <dimension_t DIM, typename T>
 struct FilterEvenId {
-    [[nodiscard]] constexpr bool IsEntryValid(const PhPoint<DIM>& key, const T& value) const {
+    [[nodiscard]] constexpr bool IsEntryValid(const PhPoint<DIM>&, const T& value) const {
         return value._i % 2 == 0;
     }
-    [[nodiscard]] constexpr bool IsNodeValid(const PhPoint<DIM>& prefix, int bits_to_ignore) const {
+    [[nodiscard]] constexpr bool IsNodeValid(const PhPoint<DIM>&, int) const {
         return true;
     }
 };

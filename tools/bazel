@@ -12,29 +12,19 @@ source "${TOOLS_DIR}"/../ci/includes/bazel.sh
 REQUIRED_BAZEL_VERSION="$(getBazelVersion)"
 BAZEL_INSTALLATION_DIR="${HOME}/.bazel_installations/${REQUIRED_BAZEL_VERSION}"
 if isLinux; then
-  REQUIRED_BAZEL_SHA256="1a64c807716e10c872f1618852d95f4893d81667fe6e691ef696489103c9b460"
-  REQUIRED_BAZEL_SHA256CMD="sha256sum"
   DOWNLOAD_CMD="wget -q --no-clobber -O bazel"
   BAZEL_EXE="bazel-${REQUIRED_BAZEL_VERSION}-linux-x86_64"
 
-  if [[ !("$(lsb_release -cs)" =~ ^(bionic|focal)$) ]]; then
-    echo -e "\033[0;33mWarning: You don't seem to be running Ubuntu 18.04 or 20.04, which is the supported Linux distribution. Continuing anyway, but your mileage might vary.\033[0m"
-  fi
-
-  if which clang-9 1>/dev/null; then
-    # We follow the symlink of clang-9 here to avoid a bug with the LLVM package when combined with -no-canonical-prefixes.
-    export CC="$(readlink -f "$(which clang-9)")"
+  if which clang-10 1>/dev/null; then
+    # We follow the symlink of clang-10 here to avoid a bug with the LLVM package when combined with -no-canonical-prefixes.
+    export CC="$(readlink -f "$(which clang-10)")"
   else
     echo -e "\033[0;33mWarning: You don't seem to have clang-9 correctly installed. Please check README.md to ensure your compiler is set up correctly. Continuing with whatever compiler bazel detects, your mileage might vary.\033[0m"
   fi
 elif isMacOS; then
-  REQUIRED_BAZEL_SHA256="23ea93e5ef9f381babd7f658bbbf12d366510f0a719e816fea90bcbe9737aef2"
-  REQUIRED_BAZEL_SHA256CMD="shasum -a 256"
   DOWNLOAD_CMD="wget -q --no-clobber -O bazel"
   BAZEL_EXE="bazel-${REQUIRED_BAZEL_VERSION}-darwin-x86_64"
 else
-  REQUIRED_BAZEL_SHA256="d526f04197a1362d95f1d214d2aa51cde527fae01c5752ccea1167475c6f1c60"
-  REQUIRED_BAZEL_SHA256CMD="sha256sum"
   DOWNLOAD_CMD="curl -L -s -o bazel.exe"
   # Windows does not have an installer but retrieves the executable directly.
   BAZEL_EXE="bazel-${REQUIRED_BAZEL_VERSION}-windows-x86_64.exe"
@@ -77,22 +67,6 @@ if [[ ! -d "${BAZEL_INSTALLATION_DIR}" ]]; then
   mkdir -p "${BAZEL_INSTALLATION_DIR}"
 fi
 
-function _are_checksums_equal() {
-  CHECKSUM_A=$1
-  CHECKSUM_B=$2
-  # Split apart the checksum from the file name by splitting the returned string by the contained
-  # space; the checksum has the format:
-  # xxxxxx...xxxxx <filename>
-  CHECKSUM_A_PARTS=(${CHECKSUM_A})
-  CHECKSUM_B_PARTS=(${CHECKSUM_B})
-
-  if [[ "${CHECKSUM_A_PARTS[0]}" == "${CHECKSUM_B_PARTS[0]}" ]]; then
-    return 0 # True
-  else
-    return 1 # False
-  fi
-}
-
 # Install correct bazel version.
 # If we don't have a local Bazel install at this point we need to retrieve the right version from GitHub.
 mkdir -p "${BAZEL_INSTALLATION_DIR}/bin/tmp"
@@ -101,16 +75,6 @@ rm bazel 2>/dev/null || true # Remove bazel binary if already present in tmp dir
 echo "Starting download of bazel ${REQUIRED_BAZEL_VERSION}..."
 ${DOWNLOAD_CMD} "https://github.com/bazelbuild/bazel/releases/download/${REQUIRED_BAZEL_VERSION}/${BAZEL_EXE}"
 echo "Download finished."
-echo "Testing download file integrity..."
-CALCULATED_CHECKSUM="$(${REQUIRED_BAZEL_SHA256CMD} bazel)"
-if ! _are_checksums_equal "${CALCULATED_CHECKSUM}" "${REQUIRED_BAZEL_SHA256}"; then
-  cat <<EOM
-  ABORT - Downloaded Bazel failed the SHA-256 hash check.
-  ABORT - Expected: ${REQUIRED_BAZEL_SHA256}  bazel
-  ABORT - Found:    ${CALCULATED_CHECKSUM}
-EOM
-  exit 1
-fi
 # Mark downloaded file executable and move out of tmp directory.
 chmod a+x "bazel"
 mv bazel ..
