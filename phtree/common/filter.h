@@ -134,7 +134,7 @@ class FilterAABB {
         ScalarInternal node_min_bits = MAX_MASK<ScalarInternal> << bits_to_ignore;
         ScalarInternal node_max_bits = ~node_min_bits;
 
-        for (size_t i = 0; i < prefix.size(); ++i) {
+        for (dimension_t i = 0; i < DIM; ++i) {
             if ((prefix[i] | node_max_bits) < min_internal_[i] ||
                 (prefix[i] & node_min_bits) > max_internal_[i]) {
                 return false;
@@ -154,12 +154,16 @@ class FilterAABB {
 /*
  * The sphere filter can be used to query a point tree for a sphere.
  */
-template <typename CONVERTER = ConverterIEEE<3>, typename DISTANCE = DistanceEuclidean<3>>
+template <
+    typename CONVERTER = ConverterIEEE<3>,
+    typename DISTANCE = DistanceEuclidean<CONVERTER::DimInternal>>
 class FilterSphere {
     using KeyExternal = typename CONVERTER::KeyExternal;
     using KeyInternal = typename CONVERTER::KeyInternal;
     using ScalarInternal = typename CONVERTER::ScalarInternal;
     using ScalarExternal = typename CONVERTER::ScalarExternal;
+
+    static constexpr auto DIM = CONVERTER::DimInternal;
 
   public:
     FilterSphere(
@@ -194,7 +198,7 @@ class FilterSphere {
         ScalarInternal node_max_bits = ~node_min_bits;
 
         KeyInternal closest_in_bounds;
-        for (size_t i = 0; i < prefix.size(); ++i) {
+        for (dimension_t i = 0; i < DIM; ++i) {
             // calculate lower and upper bound for dimension for given node
             ScalarInternal lo = prefix[i] & node_min_bits;
             ScalarInternal hi = prefix[i] | node_max_bits;
