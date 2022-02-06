@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 Nothing yet.
 
+## [1.1.1] - 2022-01-30
+### Changed
+- Replaced size() in filters with DIM [#26](https://github.com/improbable-eng/phtree-cpp/pull/26)
+
 ## [1.1.0] - 2022-01-25
 ### Added
 - FilterSphere for filtering by sphere constraint (by ctbur) [#16](https://github.com/improbable-eng/phtree-cpp/pull/16)
@@ -66,7 +70,8 @@ Nothing yet.
 - Nothing.
 
 
-[Unreleased]: https://github.com/improbable-eng/phtree-cpp/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/improbable-eng/phtree-cpp/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/improbable-eng/phtree-cpp/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/improbable-eng/phtree-cpp/compare/v1.0.0...v1.1.0
 [1.0.1]: https://github.com/improbable-eng/phtree-cpp/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/improbable-eng/phtree-cpp/compare/v0.1.0...v1.0.0
