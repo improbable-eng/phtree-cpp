@@ -1,4 +1,4 @@
-**Note: for updates please also check the [fork](https://github.com/tzaeschke/phtree-cpp) by the original PH-Tree developer.**
+**This is a fork of [Improbable's PH-tree](https://github.com/improbable-eng/phtree-cpp)**.
 
 # PH-Tree C++
 
