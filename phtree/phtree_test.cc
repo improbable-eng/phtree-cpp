@@ -717,6 +717,32 @@ TEST(PhTreeTest, TestWindowQuery1) {
     ASSERT_EQ(N, n);
 }
 
+TEST(PhTreeTest, TestWindowQuery1_WithFilter) {
+    size_t N = 1000;
+    const dimension_t dim = 3;
+    TestTree<dim, Id> tree;
+    std::vector<TestPoint<dim>> points;
+    populate(tree, points, N);
+
+    struct Counter {
+        void operator()(TestPoint<dim>, Id& t) {
+            ++n_;
+            id_ = t;
+        }
+        Id id_{};
+        size_t n_ = 0;
+    };
+
+    for (size_t i = 0; i < N; i++) {
+        TestPoint<dim>& p = points.at(i);
+        Counter callback{};
+        FilterAABB filter(p, p, tree.converter());
+        tree.for_each(callback, filter);
+        ASSERT_EQ(i, callback.id_._i);
+        ASSERT_EQ(1, callback.n_);
+    }
+}
+
 TEST(PhTreeTest, TestWindowQueryMany) {
     const dimension_t dim = 3;
     TestPoint<dim> min{-100, -100, -100};

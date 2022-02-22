@@ -41,11 +41,11 @@ class ForEach {
 
     void run(const EntryT& root) {
         assert(root.IsNode());
-        TraverseNode(root.GetKey(), root.GetNode());
+        TraverseNode(root.GetNode());
     }
 
   private:
-    void TraverseNode(const KeyInternal& key, const NodeT& node) {
+    void TraverseNode(const NodeT& node) {
         auto iter = node.Entries().begin();
         auto end = node.Entries().end();
         for (; iter != end; ++iter) {
@@ -53,12 +53,12 @@ class ForEach {
             const auto& child_key = child.GetKey();
             if (child.IsNode()) {
                 const auto& child_node = child.GetNode();
-                if (filter_.IsNodeValid(key, node.GetPostfixLen() + 1)) {
-                    TraverseNode(child_key, child_node);
+                if (filter_.IsNodeValid(child_key, child_node.GetPostfixLen() + 1)) {
+                    TraverseNode(child_node);
                 }
             } else {
                 T& value = child.GetValue();
-                if (filter_.IsEntryValid(key, value)) {
+                if (filter_.IsEntryValid(child_key, value)) {
                     callback_(converter_.post(child_key), value);
                 }
             }
