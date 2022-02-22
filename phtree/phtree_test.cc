@@ -738,8 +738,8 @@ TEST(PhTreeTest, TestWindowQuery1_WithFilter) {
         Counter callback{};
         FilterAABB filter(p, p, tree.converter());
         tree.for_each(callback, filter);
-        ASSERT_EQ(1, callback.n_);
         ASSERT_EQ(i, callback.id_._i);
+        ASSERT_EQ(1, callback.n_);
     }
 }
 
