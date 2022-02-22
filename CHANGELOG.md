@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 ### Changed
+- Fixed issue #2: for_each(callback, filter) was traversing too many nodes. 
 - Build improvements for bazel/cmake
 
 ## [1.1.1] - 2022-01-30

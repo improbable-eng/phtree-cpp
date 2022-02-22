@@ -128,9 +128,9 @@ tree.estimate_count(query);
 
 #### Queries
 
-* For-each over all elements: `tree.fore_each(callback);`
+* For-each over all elements: `tree.for_each(callback);`
 * Iterator over all elements: `auto iterator = tree.begin();`
-* For-each with box shaped window queries: `tree.fore_each(PhBoxD(min, max), callback);`
+* For-each with box shaped window queries: `tree.for_each(PhBoxD(min, max), callback);`
 * Iterator for box shaped window queries: `auto q = tree.begin_query(PhBoxD(min, max));`
 * Iterator for _k_ nearest neighbor queries: `auto q = tree.begin_knn_query(k, center_point, distance_function);`
 * Custom query shapes, such as spheres: `tree.for_each(callback, FilterSphere(center, radius, tree.converter()));`
