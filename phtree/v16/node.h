@@ -164,14 +164,14 @@ class Node {
      * @param args Constructor arguments for creating a value T that can be inserted for the key.
      */
     template <typename... Args>
-    EntryT* Emplace(bool& is_inserted, const KeyT& key, Args&&... args) {
+    EntryT& Emplace(bool& is_inserted, const KeyT& key, Args&&... args) {
         hc_pos_t hc_pos = CalcPosInArray(key, GetPostfixLen());
         auto emplace_result = entries_.try_emplace(hc_pos, key, std::forward<Args>(args)...);
         auto& entry = emplace_result.first->second;
         // Return if emplace succeed, i.e. there was no entry.
         if (emplace_result.second) {
             is_inserted = true;
-            return &entry;
+            return entry;
         }
         return HandleCollision(entry, is_inserted, key, std::forward<Args>(args)...);
     }
@@ -311,7 +311,7 @@ class Node {
      * an entry with the exact same key as new_key, so insertion has failed.
      */
     template <typename... Args>
-    auto* HandleCollision(
+    auto& HandleCollision(
         EntryT& existing_entry, bool& is_inserted, const KeyT& new_key, Args&&... args) {
         assert(!is_inserted);
         // We have two entries in the same location (local pos).
@@ -339,23 +339,22 @@ class Node {
             }
             // perfect match -> return existing
         }
-        return &existing_entry;
+        return existing_entry;
     }
 
     template <typename... Args>
-    auto* InsertSplit(
+    auto& InsertSplit(
         EntryT& current_entry,
         const KeyT& new_key,
         bit_width_t max_conflicting_bits,
         Args&&... args) {
-        const auto current_key = current_entry.GetKey();
 
         // determine length of infix
         bit_width_t new_local_infix_len = GetPostfixLen() - max_conflicting_bits;
         bit_width_t new_postfix_len = max_conflicting_bits - 1;
         auto new_sub_node = std::make_unique<Node>(new_local_infix_len, new_postfix_len);
         hc_pos_t pos_sub_1 = CalcPosInArray(new_key, new_postfix_len);
-        hc_pos_t pos_sub_2 = CalcPosInArray(current_key, new_postfix_len);
+        hc_pos_t pos_sub_2 = CalcPosInArray(current_entry.GetKey(), new_postfix_len);
 
         // Move key/value into subnode
         new_sub_node->WriteEntry(pos_sub_2, current_entry);
@@ -363,7 +362,7 @@ class Node {
 
         // Insert new node into local node
         current_entry.SetNode(std::move(new_sub_node));
-        return &new_entry;
+        return new_entry;
     }
 
     /*

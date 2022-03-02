@@ -95,7 +95,7 @@ class PhTreeV16 {
         bool is_inserted = false;
         while (current_entry->IsNode()) {
             current_entry =
-                current_entry->GetNode().Emplace(is_inserted, key, std::forward<Args>(args)...);
+                &current_entry->GetNode().Emplace(is_inserted, key, std::forward<Args>(args)...);
         }
         num_entries_ += is_inserted;
         return {current_entry->GetValue(), is_inserted};
@@ -145,7 +145,7 @@ class PhTreeV16 {
         bool is_inserted = false;
         while (current_entry->IsNode()) {
             current_entry =
-                current_entry->GetNode().Emplace(is_inserted, key, std::forward<Args>(args)...);
+                &current_entry->GetNode().Emplace(is_inserted, key, std::forward<Args>(args)...);
         }
         num_entries_ += is_inserted;
         return {current_entry->GetValue(), is_inserted};
