@@ -59,6 +59,7 @@ class IteratorHC : public IteratorBase<T, CONVERT, FILTER> {
     , stack_size_{0}
     , range_min_{range_min}
     , range_max_{range_max} {
+        stack_.reserve(8);
         PrepareAndPush(root);
         FindNextElement();
     }
@@ -98,7 +99,10 @@ class IteratorHC : public IteratorBase<T, CONVERT, FILTER> {
     }
 
     auto& PrepareAndPush(const EntryT& entry) {
-        assert(stack_size_ < stack_.size() - 1);
+        if (stack_.size() < stack_size_ + 1) {
+            stack_.emplace_back();
+        }
+        assert(stack_size_ < stack_.size());
         auto& ni = stack_[stack_size_++];
         ni.Init(range_min_, range_max_, entry);
         return ni;
@@ -118,7 +122,7 @@ class IteratorHC : public IteratorBase<T, CONVERT, FILTER> {
         return stack_size_ == 0;
     }
 
-    std::array<NodeIterator<DIM, T, SCALAR>, MAX_BIT_WIDTH<SCALAR>> stack_;
+    std::vector<NodeIterator<DIM, T, SCALAR>> stack_;
     size_t stack_size_;
     const KeyInternal range_min_;
     const KeyInternal range_max_;
@@ -129,7 +133,7 @@ template <dimension_t DIM, typename T, typename SCALAR>
 class NodeIterator {
     using KeyT = PhPoint<DIM, SCALAR>;
     using EntryT = Entry<DIM, T, SCALAR>;
-    using NodeT = Node<DIM, T, SCALAR>;
+    using EntriesT = EntryMap<DIM, EntryT>;
 
   public:
     NodeIterator() : iter_{}, mask_lower_{0}, mask_upper_{0}, postfix_len_{0} {}
@@ -138,7 +142,7 @@ class NodeIterator {
         auto& node = entry.GetNode();
         CalcLimits(entry.GetNodePostfixLen(), range_min, range_max, entry.GetKey());
         iter_ = node.Entries().lower_bound(mask_lower_);
-        node_ = &node;
+        entries_ = &node.Entries();
         postfix_len_ = entry.GetNodePostfixLen();
     }
 
@@ -147,7 +151,7 @@ class NodeIterator {
      * @return TRUE iff a matching element was found.
      */
     const EntryT* Increment(const KeyT& range_min, const KeyT& range_max) {
-        while (iter_ != node_->Entries().end() && iter_->first <= mask_upper_) {
+        while (iter_ != entries_->end() && iter_->first <= mask_upper_) {
             if (IsPosValid(iter_->first)) {
                 const auto* be = &iter_->second;
                 if (CheckEntry(*be, range_min, range_max)) {
@@ -252,14 +256,11 @@ class NodeIterator {
         }
         mask_lower_ = lower_limit;
         mask_upper_ = upper_limit;
-//        std::cout << "size IT : " << sizeof(iter_) << " +  " << sizeof(node_) << " + "
-//                  << sizeof(mask_lower_) << " + " << sizeof(mask_lower_) << " + "
-//                  << sizeof(postfix_len_) << " = " << sizeof(*this) << std::endl;
     }
 
   private:
     EntryIteratorC<DIM, EntryT> iter_;
-    NodeT* node_;
+    EntriesT* entries_;
     hc_pos_t mask_lower_;
     hc_pos_t mask_upper_;
     bit_width_t postfix_len_;
