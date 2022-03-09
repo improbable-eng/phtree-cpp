@@ -20,6 +20,7 @@
 #include "../../phtree/common/common.h"
 #include "node.h"
 #include <cassert>
+#include <iostream>
 #include <memory>
 #include <optional>
 
@@ -56,40 +57,20 @@ class Entry {
     /*
      * Construct entry with existing node.
      */
-    Entry(const KeyT& k, std::unique_ptr<NodeT>&& node_ptr) noexcept
-    : kd_key_{k}
-    , node_{std::move(node_ptr)}
-    , type{NODE}
-#ifdef PH_TREE_ENTRY_POSTLEN
-    , postfix_len_{node_->GetPostfixLen()}
-#endif
-    {
-    }
+    Entry(const KeyT& k, std::unique_ptr<NodeT>&& node_ptr, bit_width_t postfix_len) noexcept
+    : kd_key_{k}, node_{std::move(node_ptr)}, union_type_{NODE}, postfix_len_{postfix_len} {}
 
     /*
      * Construct entry with a new node.
      */
-    Entry(bit_width_t infix_len, bit_width_t postfix_len) noexcept
-    : kd_key_()
-    , node_{std::make_unique<NodeT>(infix_len, postfix_len)}
-    , type{NODE}
-#ifdef PH_TREE_ENTRY_POSTLEN
-    , postfix_len_{postfix_len}
-#endif
-    {
-    }
+    Entry(bit_width_t postfix_len) noexcept
+    : kd_key_(), node_{std::make_unique<NodeT>()}, union_type_{NODE}, postfix_len_{postfix_len} {}
 
     /*
      * Construct entry with existing T.
      */
     Entry(const KeyT& k, std::optional<ValueT>&& value) noexcept
-    : kd_key_{k}
-    , value_{std::move(value)}
-    , type{VALUE}
-#ifdef PH_TREE_ENTRY_POSTLEN
-    , postfix_len_{0}
-#endif
-    {
+    : kd_key_{k}, value_{std::move(value)}, union_type_{VALUE}, postfix_len_{0} {
         //        value.reset();  // std::optional's move constructor does not destruct the previous
     }
 
@@ -100,28 +81,21 @@ class Entry {
     explicit Entry(const KeyT& k, Args&&... args) noexcept
     : kd_key_{k}
     , value_{std::in_place, std::forward<Args>(args)...}
-    , type{VALUE}
-#ifdef PH_TREE_ENTRY_POSTLEN
-    , postfix_len_{0}
-#endif
-    {
-    }
+    , union_type_{VALUE}
+    , postfix_len_{0} {}
 
     Entry(const Entry& other) = delete;
     Entry& operator=(const Entry& other) = delete;
 
-    Entry(Entry&& other) noexcept : kd_key_{std::move(other.kd_key_)}, type{std::move(other.type)} {
-#ifdef PH_TREE_ENTRY_POSTLEN
+    Entry(Entry&& other) noexcept
+    : kd_key_{std::move(other.kd_key_)}, union_type_{std::move(other.union_type_)} {
         postfix_len_ = std::move(other.postfix_len_);
-#endif
         AssignUnion(std::move(other));
     }
 
     Entry& operator=(Entry&& other) noexcept {
         kd_key_ = std::move(other.kd_key_);
-#ifdef PH_TREE_ENTRY_POSTLEN
         postfix_len_ = std::move(other.postfix_len_);
-#endif
         DestroyUnion();
         AssignUnion(std::move(other));
         return *this;
@@ -136,54 +110,55 @@ class Entry {
     }
 
     [[nodiscard]] bool IsValue() const {
-        return type == VALUE;
+        return union_type_ == VALUE;
     }
 
     [[nodiscard]] bool IsNode() const {
-        return type == NODE;
+        return union_type_ == NODE;
     }
 
     [[nodiscard]] T& GetValue() const {
-        assert(type == VALUE);
+        assert(union_type_ == VALUE);
         return const_cast<T&>(*value_);
     }
 
     [[nodiscard]] NodeT& GetNode() const {
-        assert(type == NODE);
+        assert(union_type_ == NODE);
         return *node_;
     }
 
-    void SetNode(std::unique_ptr<NodeT>&& node) noexcept {
-#ifdef PH_TREE_ENTRY_POSTLEN
-        postfix_len_ = node->GetPostfixLen();
-#endif
-        //        std::cout << "size EV : " << sizeof(kd_key_) << " +  " << sizeof(node_) << " +  "
-        //                  << sizeof(value_) << "+" << sizeof(type) << " = " << sizeof(*this) <<
-        //                  std::endl;
+    void SetNode(std::unique_ptr<NodeT>&& node, bit_width_t postfix_len) noexcept {
+        postfix_len_ = postfix_len;
         DestroyUnion();
-        type = NODE;
+        union_type_ = NODE;
         new (&node_) std::unique_ptr<NodeT>{std::move(node)};
         assert(!node);
     }
 
-    [[nodiscard]] bit_width_t GetNodePostfixLen() const {
+    [[nodiscard]] bit_width_t GetNodePostfixLen() const noexcept {
         assert(IsNode());
-#ifdef PH_TREE_ENTRY_POSTLEN
         return postfix_len_;
-#else
-        return GetNode().GetPostfixLen();
-#endif
     }
 
-    [[nodiscard]] std::optional<ValueT>&& ExtractValue() {
+    [[nodiscard]] bit_width_t GetNodeInfixLen(bit_width_t parent_postfix_len) const noexcept {
+        assert(IsNode());
+        return parent_postfix_len - GetNodePostfixLen() - 1;
+    }
+
+    [[nodiscard]] bool HasNodeInfix(bit_width_t parent_postfix_len) const noexcept {
+        assert(IsNode());
+        return parent_postfix_len - GetNodePostfixLen() - 1 > 0;
+    }
+
+    [[nodiscard]] std::optional<ValueT>&& ExtractValue() noexcept {
         assert(IsValue());
-        type = EMPTY;
+        union_type_ = EMPTY;
         return std::move(value_);
     }
 
-    [[nodiscard]] std::unique_ptr<NodeT>&& ExtractNode() {
+    [[nodiscard]] std::unique_ptr<NodeT>&& ExtractNode() noexcept {
         assert(IsNode());
-        type = EMPTY;
+        union_type_ = EMPTY;
         return std::move(node_);
     }
 
@@ -192,20 +167,17 @@ class Entry {
         // 'other' may be referenced from the local node, so we need to do move(other)
         // before destructing the local node.
         auto node = std::move(node_);
-        type = EMPTY;
+        union_type_ = EMPTY;
         *this = std::move(other);
         node.~unique_ptr();
-#ifdef PH_TREE_ENTRY_POSTLEN
-        postfix_len_ = std::move(other.postfix_len_);
-#endif
     }
 
   private:
     void AssignUnion(Entry&& other) noexcept {
-        type = std::move(other.type);
-        if (type == NODE) {
+        union_type_ = std::move(other.union_type_);
+        if (union_type_ == NODE) {
             new (&node_) std::unique_ptr<NodeT>{std::move(other.node_)};
-        } else if (type == VALUE) {
+        } else if (union_type_ == VALUE) {
             new (&value_) std::optional<ValueT>{std::move(other.value_)};
         } else {
             assert(false && "Assigning from an EMPTY variant is a waste of time.");
@@ -213,14 +185,14 @@ class Entry {
     }
 
     void DestroyUnion() noexcept {
-        if (type == VALUE) {
+        if (union_type_ == VALUE) {
             value_.~optional();
-        } else if (type == NODE) {
+        } else if (union_type_ == NODE) {
             node_.~unique_ptr();
         } else {
-            assert(EMPTY);
+            assert(union_type_ == EMPTY);
         }
-        type = EMPTY;
+        union_type_ = EMPTY;
     }
 
     KeyT kd_key_;
@@ -228,16 +200,14 @@ class Entry {
         std::unique_ptr<NodeT> node_;
         std::optional<ValueT> value_;
     };
-    alignas(2) std::uint16_t type;
+    alignas(2) std::uint16_t union_type_;
     // The length (number of bits) of post fixes (the part of the coordinate that is 'below' the
     // current node). If a variable prefix_len would refer to the number of bits in this node's
     // prefix, and if we assume 64 bit values, the following would always hold:
     // prefix_len + 1 + postfix_len = 64.
     // The '+1' accounts for the 1 bit that is represented by the local node's hypercube,
     // i.e. the same bit that is used to create the lookup keys in entries_.
-#ifdef PH_TREE_ENTRY_POSTLEN
     alignas(2) bit_width_t postfix_len_;
-#endif
 };
 
 }  // namespace improbable::phtree::v16

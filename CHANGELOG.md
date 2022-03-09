@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 ### Changed
+- postfix/infix field moved from Node to Entry. This avoids indirections and improves performance of most by ~10%.
+  operations by 5-15%.  [#11](https://github.com/tzaeschke/phtree-cpp/issues/11)
+- Entries now use 'union' to store children.  [#9](https://github.com/tzaeschke/phtree-cpp/issues/9)
 - Avoid unnecessary find() when removing a node. [#5](https://github.com/tzaeschke/phtree-cpp/issues/5)
 - Avoid unnecessary key copy when inserting a node. [#4](https://github.com/tzaeschke/phtree-cpp/issues/4)
 - for_each(callback, filter) was traversing too many nodes. [#2](https://github.com/tzaeschke/phtree-cpp/issues/2)
