@@ -129,6 +129,7 @@ tree.estimate_count(query);
 #### Queries
 
 * For-each over all elements: `tree.for_each(callback);`
+  **Note that `for_each` tends to be 10%-20% faster than using an iterator.**
 * Iterator over all elements: `auto iterator = tree.begin();`
 * For-each with box shaped window queries: `tree.for_each(PhBoxD(min, max), callback);`
 * Iterator for box shaped window queries: `auto q = tree.begin_query(PhBoxD(min, max));`
@@ -432,7 +433,7 @@ heavily on the actual dataset, usage patterns, hardware, ... .
 
 There are numerous ways to improve performance. The following list gives an overview over the possibilities.
 
-1) **Use `for_each` instead of iterators**. This should improve performance of queries by 5%-10%.
+1) **Use `for_each` instead of iterators**. This should improve performance of queries by 10%-20%.
 
 2) **Use `emplace_hint` if possible**. When updating the position of an entry, the naive way is to use `erase()`
    /`emplace()`. With `emplace_hint`, insertion can avoid navigation to the target node if the insertion coordinate is
