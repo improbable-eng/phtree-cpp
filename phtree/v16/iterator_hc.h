@@ -18,7 +18,7 @@
 #define PHTREE_V16_ITERATOR_HC_H
 
 #include "../common/common.h"
-#include "iterator_simple.h"
+#include "iterator_with_parent.h"
 
 namespace improbable::phtree::v16 {
 
@@ -42,11 +42,11 @@ class NodeIterator;
  * 2017.
  */
 template <typename T, typename CONVERT, typename FILTER>
-class IteratorHC : public IteratorBase<T, CONVERT, FILTER> {
+class IteratorHC : public IteratorWithFilter<T, CONVERT, FILTER> {
     static constexpr dimension_t DIM = CONVERT::DimInternal;
     using KeyInternal = typename CONVERT::KeyInternal;
     using SCALAR = typename CONVERT::ScalarInternal;
-    using EntryT = typename IteratorBase<T, CONVERT, FILTER>::EntryT;
+    using EntryT = typename IteratorWithFilter<T, CONVERT, FILTER>::EntryT;
 
   public:
     IteratorHC(
@@ -55,7 +55,7 @@ class IteratorHC : public IteratorBase<T, CONVERT, FILTER> {
         const KeyInternal& range_max,
         const CONVERT* converter,
         FILTER filter)
-    : IteratorBase<T, CONVERT, FILTER>(converter, filter)
+    : IteratorWithFilter<T, CONVERT, FILTER>(converter, filter)
     , stack_size_{0}
     , range_min_{range_min}
     , range_max_{range_max} {
@@ -64,23 +64,22 @@ class IteratorHC : public IteratorBase<T, CONVERT, FILTER> {
         FindNextElement();
     }
 
-    IteratorHC& operator++() {
+    IteratorHC& operator++() noexcept {
         FindNextElement();
         return *this;
     }
 
-    IteratorHC operator++(int) {
+    IteratorHC operator++(int) noexcept {
         IteratorHC iterator(*this);
         ++(*this);
         return iterator;
     }
 
   private:
-    void FindNextElement() {
-        assert(!this->Finished());
+    void FindNextElement() noexcept {
         while (!IsEmpty()) {
             auto* p = &Peek();
-            const EntryT* current_result = nullptr;
+            const EntryT* current_result;
             while ((current_result = p->Increment(range_min_, range_max_))) {
                 if (this->ApplyFilter(*current_result)) {
                     if (current_result->IsNode()) {
@@ -98,7 +97,7 @@ class IteratorHC : public IteratorBase<T, CONVERT, FILTER> {
         this->SetFinished();
     }
 
-    auto& PrepareAndPush(const EntryT& entry) {
+    auto& PrepareAndPush(const EntryT& entry) noexcept {
         if (stack_.size() < stack_size_ + 1) {
             stack_.emplace_back();
         }
@@ -108,17 +107,17 @@ class IteratorHC : public IteratorBase<T, CONVERT, FILTER> {
         return ni;
     }
 
-    auto& Peek() {
+    auto& Peek() noexcept {
         assert(stack_size_ > 0);
         return stack_[stack_size_ - 1];
     }
 
-    auto& Pop() {
+    auto& Pop() noexcept {
         assert(stack_size_ > 0);
         return stack_[--stack_size_];
     }
 
-    bool IsEmpty() {
+    bool IsEmpty() noexcept {
         return stack_size_ == 0;
     }
 
@@ -190,7 +189,7 @@ class NodeIterator {
     }
 
   private:
-    [[nodiscard]] bool IsPosValid(hc_pos_t key) const {
+    [[nodiscard]] inline bool IsPosValid(hc_pos_t key) const noexcept {
         return ((key | mask_lower_) & mask_upper_) == key;
     }
 

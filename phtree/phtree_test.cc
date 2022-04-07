@@ -559,6 +559,10 @@ TEST(PhTreeTest, TestUpdateWithEmplaceHint) {
 
     ASSERT_EQ(N, tree.size());
     tree.clear();
+
+    tree.emplace_hint(tree.end(), {11, 21, 31}, 421);
+    tree.emplace_hint(tree.begin(), {1, 2, 3}, 42);
+    ASSERT_EQ(2, tree.size());
 }
 
 TEST(PhTreeTest, TestEraseByIterator) {
@@ -1187,4 +1191,34 @@ TEST(PhTreeTest, TestMoveAssignCustomConverter) {
     ASSERT_GE(tree.converter().count_pre_local, 2);
     ASSERT_EQ(tree.converter().count_pre_local, count_pre);
     tree.~PhTree();
+}
+
+TEST(PhTreeTest, TestMovableIterators) {
+    // Test edge case: only one entry in tree
+    PhPoint<3> p{1, 2, 3};
+    auto tree = TestTree<3, Id>();
+    tree.emplace(p, Id{1});
+
+    ASSERT_TRUE(std::is_move_constructible_v<decltype(tree.begin())>);
+    ASSERT_TRUE(std::is_move_assignable_v<decltype(tree.begin())>);
+    ASSERT_NE(tree.begin(), tree.end());
+
+    ASSERT_TRUE(std::is_move_constructible_v<decltype(tree.end())>);
+    ASSERT_TRUE(std::is_move_assignable_v<decltype(tree.end())>);
+
+    ASSERT_TRUE(std::is_move_constructible_v<decltype(tree.find(p))>);
+    ASSERT_TRUE(std::is_move_assignable_v<decltype(tree.find(p))>);
+    ASSERT_NE(tree.find(p), tree.end());
+
+    TestTree<3, Id>::QueryBox qb{{1, 2, 3}, {4, 5, 6}};
+    FilterEvenId<3, Id> filter{};
+    ASSERT_TRUE(std::is_move_constructible_v<decltype(tree.begin_query(qb, filter))>);
+    // Not movable due to constant fields
+    // ASSERT_TRUE(std::is_move_assignable_v<decltype(tree.begin_query(qb, filter))>);
+
+    ASSERT_TRUE(std::is_move_constructible_v<decltype(tree.begin_knn_query(
+                    3, {2, 3, 4}, DistanceEuclidean<3>()))>);
+    // Not movable due to constant fields
+    // ASSERT_TRUE(std::is_move_assignable_v<decltype(tree.begin_knn_query(
+    //                3, {2, 3, 4}, DistanceEuclidean<3>()))>);
 }
