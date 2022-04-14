@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 ### Changed
+- Nothing yet
+
+## [1.2.0] - 2022-04-14
+### Changed
 - Bugfix: FilterSphere was not working correctly. [#27](https://github.com/tzaeschke/phtree-cpp/issues/27)
 - Potentially **BREAKING CHANGE**: Refactored API of all methods that accept callbacks and filters to
   accept universal/forwarding references.
@@ -92,7 +96,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Nothing.
 
 
-[Unreleased]: https://github.com/improbable-eng/phtree-cpp/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/improbable-eng/phtree-cpp/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/improbable-eng/phtree-cpp/compare/v1.2.0...v1.1.0
 [1.1.1]: https://github.com/improbable-eng/phtree-cpp/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/improbable-eng/phtree-cpp/compare/v1.0.0...v1.1.0
 [1.0.1]: https://github.com/improbable-eng/phtree-cpp/compare/v1.0.0...v1.0.1
