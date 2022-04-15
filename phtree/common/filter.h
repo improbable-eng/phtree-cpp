@@ -46,12 +46,18 @@ namespace improbable::phtree {
  *   This function is called for every key/value pair that the query encounters. The function
  *   should return 'true' iff the key/value should be added to the query result.
  *   The parameters are the key and value of the key/value pair.
+ *   NOTE: WHen using a MultiMap, 'T' becomes the type of the 'bucket', i.e. the type of the
+ *   container that holds multiple entries for a given coordinate.
  * - bool IsNodeValid(const PhPoint<DIM>& prefix, int bits_to_ignore);
  *   This function is called for every node that the query encounters. The function should
  *   return 'true' if the node should be traversed and searched for potential results.
  *   The parameters are the prefix of the node and the number of least significant bits of the
  *   prefix that can (and should) be ignored. The bits of the prefix that should be ignored can
  *   have any value.
+ *
+ * - bool IsBucketEntryValid(const KeyT& key, const ValueT& value);
+ *   This is only used/required for MultiMaps, implementations for a normal PhTree are ignored.
+ *   In case of a MultiMap, this method is called for every entry in a bucket (see above).
  */
 
 /*
@@ -60,11 +66,11 @@ namespace improbable::phtree {
 struct FilterNoOp {
     /*
      * @param key The key/coordinate of the entry.
-     * @param value The value of the entry.
+     * @param value The value of the entry. For MultiMaps, this is a container of values.
      * @returns This default implementation always returns `true`.
      */
-    template <typename KEY, typename T>
-    constexpr bool IsEntryValid(const KEY& /*key*/, const T& /*value*/) const {
+    template <typename KeyT, typename ValueT>
+    constexpr bool IsEntryValid(const KeyT& /*key*/, const ValueT& /*value*/) const noexcept {
         return true;
     }
 
@@ -76,8 +82,21 @@ struct FilterNoOp {
      * bits_to_ignore is 64-10=54.
      * @returns This default implementation always returns `true`.
      */
-    template <typename KEY>
-    constexpr bool IsNodeValid(const KEY& /*prefix*/, int /*bits_to_ignore*/) const {
+    template <typename KeyT>
+    constexpr bool IsNodeValid(const KeyT& /*prefix*/, int /*bits_to_ignore*/) const noexcept {
+        return true;
+    }
+
+    /*
+     * This is checked once for every entry in a bucket. The method is called once a call to
+     * 'IsEntryValid` for the same bucket has returned 'true'. A typical implementation
+     * simply returns `true` or checks some values of the entry.
+     * @param key The key/coordinate of the bucket entry.
+     * @param value The value of the entry.
+     * @returns This default implementation always returns `true`.
+     */
+    template <typename KeyT, typename ValueT>
+    constexpr bool IsBucketEntryValid(const KeyT& /*key*/, const ValueT& /*value*/) const noexcept {
         return true;
     }
 };
@@ -218,6 +237,48 @@ class FilterSphere {
     const CONVERTER converter_;
     const DISTANCE distance_function_;
 };
+
+/*
+ * AABB filter for MultiMaps.
+ */
+template <typename CONVERTER>
+class FilterMultiMapAABB : public FilterAABB<CONVERTER> {
+    using Key = typename CONVERTER::KeyExternal;
+    using KeyInternal = typename CONVERTER::KeyInternal;
+
+  public:
+    FilterMultiMapAABB(const Key& min_include, const Key& max_include, const CONVERTER& converter)
+    : FilterAABB<CONVERTER>(min_include, max_include, converter){};
+
+    template <typename ValueT>
+    [[nodiscard]] inline bool IsBucketEntryValid(const KeyInternal&, const ValueT&) const noexcept {
+        return true;
+    }
+};
+
+/*
+ * Sphere filter for MultiMaps.
+ */
+template <typename CONVERTER, typename DISTANCE>
+class FilterMultiMapSphere : public FilterSphere<CONVERTER, DISTANCE> {
+    using Key = typename CONVERTER::KeyExternal;
+    using KeyInternal = typename CONVERTER::KeyInternal;
+
+  public:
+    template <typename DIST = DistanceEuclidean<CONVERTER::DimInternal>>
+    FilterMultiMapSphere(
+        const Key& center, double radius, const CONVERTER& converter, DIST&& dist_fn = DIST())
+    : FilterSphere<CONVERTER, DIST>(center, radius, converter, std::forward<DIST>(dist_fn)){};
+
+    template <typename ValueT>
+    [[nodiscard]] inline bool IsBucketEntryValid(const KeyInternal&, const ValueT&) const noexcept {
+        return true;
+    }
+};
+// deduction guide
+template <typename CONV, typename DIST = DistanceEuclidean<CONV::DimInternal>, typename P>
+FilterMultiMapSphere(const P&, double, const CONV&, DIST&& fn = DIST())
+    -> FilterMultiMapSphere<CONV, DIST>;
 
 }  // namespace improbable::phtree
 

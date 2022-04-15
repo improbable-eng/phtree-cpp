@@ -144,7 +144,7 @@ class IteratorNormal : public IteratorBase<PHTREE> {
         while (!iter_ph_.IsEnd()) {
             while (iter_bucket_ != iter_ph_->end()) {
                 // We filter only entries here, nodes are filtered elsewhere
-                if (iter_ph_.__Filter().IsEntryValid(
+                if (iter_ph_.__Filter().IsBucketEntryValid(
                         iter_ph_.GetCurrentResult()->GetKey(), *iter_bucket_)) {
                     this->SetCurrentValue(&(*iter_bucket_));
                     return;
@@ -167,10 +167,10 @@ class IteratorNormal : public IteratorBase<PHTREE> {
 template <typename ITERATOR_PH, typename PHTREE>
 class IteratorKnn : public IteratorNormal<ITERATOR_PH, PHTREE> {
   public:
-    template <typename BucketIterType>
-    IteratorKnn(ITERATOR_PH iter_ph, BucketIterType&& iter_bucket) noexcept
-    : IteratorNormal<ITERATOR_PH, PHTREE>(
-          std::forward<ITERATOR_PH>(iter_ph), std::forward<BucketIterType>(iter_bucket)) {}
+    template <typename ITER_PH, typename BucketIterType>
+    IteratorKnn(ITER_PH&& iter_ph, BucketIterType&& iter_bucket) noexcept
+    : IteratorNormal<ITER_PH, PHTREE>(
+          std::forward<ITER_PH>(iter_ph), std::forward<BucketIterType>(iter_bucket)) {}
 
     [[nodiscard]] double distance() const noexcept {
         return this->GetIteratorOfPhTree().distance();
@@ -312,16 +312,11 @@ class PhTreeMultiMap {
      * See std::unordered_multimap::find().
      *
      * @param key the key to look up
-     * @return an iterator that points either to the the first value associated with the key or
+     * @return an iterator that points either to the first value associated with the key or
      * to {@code end()} if no value was found
      */
     auto find(const Key& key) const {
-        auto outer_iter = tree_.find(converter_.pre(key));
-        if (outer_iter == tree_.end()) {
-            return CreateIterator(outer_iter);
-        }
-        auto bucket_iter = outer_iter.second().begin();
-        return CreateIterator(outer_iter, bucket_iter);
+        return CreateIterator(tree_.find(converter_.pre(key)));
     }
 
     /*
@@ -333,12 +328,7 @@ class PhTreeMultiMap {
      * or to {@code end()} if the key/value pair was found
      */
     auto find(const Key& key, const T& value) const {
-        auto outer_iter = tree_.find(converter_.pre(key));
-        if (outer_iter == tree_.end()) {
-            return CreateIterator(outer_iter);
-        }
-        auto bucket_iter = outer_iter.second().find(value);
-        return CreateIterator(outer_iter, bucket_iter);
+        return CreateIteratorFind(tree_.find(converter_.pre(key)), value);
     }
 
     /*
@@ -363,7 +353,7 @@ class PhTreeMultiMap {
     /*
      * See std::map::erase(). Removes any entry located at the provided iterator.
      *
-     * This function uses the iterator to directly erase the entry so it is usually faster than
+     * This function uses the iterator to directly erase the entry, so it is usually faster than
      * erase(key, value).
      *
      * @return '1' if a value was found, otherwise '0'.
@@ -463,7 +453,7 @@ class PhTreeMultiMap {
     template <typename CALLBACK, typename FILTER = FilterNoOp>
     void for_each(CALLBACK&& callback, FILTER&& filter = FILTER()) const {
         tree_.for_each(
-            NoOpCallback(),
+            NoOpCallback{},
             WrapCallbackFilter<CALLBACK, FILTER>{
                 std::forward<CALLBACK>(callback), std::forward<FILTER>(filter), converter_});
     }
@@ -490,11 +480,10 @@ class PhTreeMultiMap {
         CALLBACK&& callback,
         FILTER&& filter = FILTER(),
         QUERY_TYPE query_type = QUERY_TYPE()) const {
-        tree_.for_each(
+        tree_.template for_each<NoOpCallback, WrapCallbackFilter<CALLBACK, FILTER>>(
             query_type(converter_.pre_query(query_box)),
-            NoOpCallback(),
-            WrapCallbackFilter<CALLBACK, FILTER>(
-                std::forward<CALLBACK>(callback), std::forward<FILTER>(filter), converter_));
+            {},
+            {std::forward<CALLBACK>(callback), std::forward<FILTER>(filter), converter_});
     }
 
     /*
@@ -506,13 +495,7 @@ class PhTreeMultiMap {
      */
     template <typename FILTER = FilterNoOp>
     auto begin(FILTER&& filter = FILTER()) const {
-        auto outer_iter = tree_.begin(WrapFilter(std::forward<FILTER>(filter)));
-        if (outer_iter == tree_.end()) {
-            return CreateIterator(outer_iter);
-        }
-        auto bucket_iter = outer_iter.second().begin();
-        assert(bucket_iter != outer_iter.second().end());
-        return CreateIterator(outer_iter, bucket_iter);
+        return CreateIterator(tree_.begin(std::forward<FILTER>(filter)));
     }
 
     /*
@@ -529,15 +512,9 @@ class PhTreeMultiMap {
     auto begin_query(
         const QueryBox& query_box,
         FILTER&& filter = FILTER(),
-        QUERY_TYPE query_type = QUERY_TYPE()) const {
-        auto outer_iter = tree_.begin_query(
-            query_type(converter_.pre_query(query_box)), WrapFilter(std::forward<FILTER>(filter)));
-        if (outer_iter == tree_.end()) {
-            return CreateIterator(outer_iter, BucketIterType{});
-        }
-        auto bucket_iter = outer_iter.second().begin();
-        assert(bucket_iter != outer_iter.second().end());
-        return CreateIterator(outer_iter, bucket_iter);
+        QUERY_TYPE&& query_type = QUERY_TYPE()) const {
+        return CreateIterator(tree_.begin_query(
+            query_type(converter_.pre_query(query_box)), std::forward<FILTER>(filter)));
     }
 
     /*
@@ -566,17 +543,11 @@ class PhTreeMultiMap {
         FILTER&& filter = FILTER()) const {
         // We use pre() instead of pre_query() here because, strictly speaking, we want to
         // find the nearest neighbors of a (fictional) key, which may as well be a box.
-        auto outer_iter = tree_.begin_knn_query(
+        return CreateIteratorKnn(tree_.begin_knn_query(
             min_results,
             converter_.pre(center),
             std::forward<DISTANCE>(distance_function),
-            WrapFilter(std::forward<FILTER>(filter)));
-        if (outer_iter == tree_.end()) {
-            return CreateIteratorKnn(outer_iter);
-        }
-        auto bucket_iter = outer_iter.second().begin();
-        assert(bucket_iter != outer_iter.second().end());
-        return CreateIteratorKnn(outer_iter, bucket_iter);
+            std::forward<FILTER>(filter)));
     }
 
     /*
@@ -621,77 +592,63 @@ class PhTreeMultiMap {
         return tree_;
     }
 
-    template <typename OUTER_ITER, typename INNER_ITER = BucketIterType>
-    auto CreateIterator(OUTER_ITER outer_iter, INNER_ITER&& bucket_iter = INNER_ITER{}) const {
+    template <typename OUTER_ITER>
+    auto CreateIteratorFind(OUTER_ITER&& outer_iter, const T& value) const {
+        auto bucket_iter =
+            outer_iter == tree_.end() ? BucketIterType{} : outer_iter.second().find(value);
         return IteratorNormal<OUTER_ITER, PHTREE>(
-            std::forward<OUTER_ITER>(outer_iter), std::forward<INNER_ITER>(bucket_iter));
+            std::forward<OUTER_ITER>(outer_iter), std::move(bucket_iter));
     }
 
-    template <typename OUTER_ITER, typename INNER_ITER = BucketIterType>
-    auto CreateIteratorKnn(OUTER_ITER outer_iter, INNER_ITER&& bucket_iter = INNER_ITER{}) const {
+    template <typename OUTER_ITER>
+    auto CreateIterator(OUTER_ITER&& outer_iter) const {
+        auto bucket_iter =
+            outer_iter == tree_.end() ? BucketIterType{} : outer_iter.second().begin();
+        return IteratorNormal<OUTER_ITER, PHTREE>(
+            std::forward<OUTER_ITER>(outer_iter), std::move(bucket_iter));
+    }
+
+    template <typename OUTER_ITER>
+    auto CreateIteratorKnn(OUTER_ITER&& outer_iter) const {
+        auto bucket_iter =
+            outer_iter == tree_.end() ? BucketIterType{} : outer_iter.second().begin();
         return IteratorKnn<OUTER_ITER, PHTREE>(
-            std::forward<OUTER_ITER>(outer_iter), std::forward<INNER_ITER>(bucket_iter));
-    }
-
-    /*
-     * We have two iterators, one that traverses the PH-Tree and one that traverses the
-     * bucket. We need two IsEntryValid() for these two iterators.
-     * The IsEntryValid() for the PH-Tree iterator always returns true (we do not support
-     * checking buckets at the moment).
-     * The IsEntryValid() for the bucket iterator forwards the call to the user defined
-     * IsEntryValid() for every entry in the bucket.
-     */
-    template <typename FILTER>
-    static auto WrapFilter(FILTER&& filter) {
-        struct FilterWrapper {
-            [[nodiscard]] constexpr bool IsEntryValid(const KeyInternal&, const BUCKET&) {
-                // This filter is used in the PH-Tree iterator.
-                return true;
-            }
-            [[nodiscard]] constexpr bool IsEntryValid(const KeyInternal& key, const T& value) {
-                // This filter is used in the PH-Tree multimap iterator (bucket iterator).
-                return filter_.IsEntryValid(key, value);
-            }
-            [[nodiscard]] constexpr bool IsNodeValid(
-                const KeyInternal& prefix, int bits_to_ignore) {
-                return filter_.IsNodeValid(prefix, bits_to_ignore);
-            }
-            FILTER filter_;
-        };
-        return FilterWrapper{std::forward<FILTER>(filter)};
+            std::forward<OUTER_ITER>(outer_iter), std::move(bucket_iter));
     }
 
     /*
      * This wrapper wraps the Filter and Callback such that the callback is called for every
-     * bucket entry that matches the user defined IsEntryValid().
+     * entry in any bucket that matches the user defined IsEntryValid().
      */
     template <typename CALLBACK, typename FILTER>
     class WrapCallbackFilter {
       public:
-        // We always have two iterators, one that traverses the PH-Tree and one that traverses the
-        // bucket. Using the FilterWrapper we create a new Filter for the PH-Tree iterator. This new
-        // filter checks only if nodes are valid. It cannot check whether buckets are valid.
-        // The original filter is then used when we iterate over the entries of a bucket. At this
-        // point, we do not need to check IsNodeValid anymore for each entry (see `IteratorNormal`).
+        /*
+         * We always have two iterators, one that traverses the PH-Tree and returns 'buckets', the
+         * other iterator traverses the returned buckets.
+         * The wrapper ensures that the callback is called for every entry in a bucket..
+         */
         template <typename CB, typename F>
         WrapCallbackFilter(CB&& callback, F&& filter, const CONVERTER& converter)
         : callback_{std::forward<CB>(callback)}
         , filter_{std::forward<F>(filter)}
         , converter_{converter} {}
 
-        [[nodiscard]] constexpr bool IsEntryValid(
+        [[nodiscard]] inline bool IsEntryValid(
             const KeyInternal& internal_key, const BUCKET& bucket) {
-            auto key = converter_.post(internal_key);
-            for (auto& entry : bucket) {
-                if (filter_.IsEntryValid(internal_key, entry)) {
-                    callback_(key, entry);
+            if (filter_.IsEntryValid(internal_key, bucket)) {
+                auto key = converter_.post(internal_key);
+                for (auto& entry : bucket) {
+                    if (filter_.IsBucketEntryValid(internal_key, entry)) {
+                        callback_(key, entry);
+                    }
                 }
             }
             // Return false. We already called the callback.
             return false;
         }
 
-        [[nodiscard]] constexpr bool IsNodeValid(const KeyInternal& prefix, int bits_to_ignore) {
+        [[nodiscard]] inline bool IsNodeValid(const KeyInternal& prefix, int bits_to_ignore) {
             return filter_.IsNodeValid(prefix, bits_to_ignore);
         }
 
@@ -702,7 +659,7 @@ class PhTreeMultiMap {
     };
 
     struct NoOpCallback {
-        void operator()(const Key&, const BUCKET&) {}
+        constexpr void operator()(const Key&, const BUCKET&) const noexcept {}
     };
 
     v16::PhTreeV16<DimInternal, BUCKET, CONVERTER> tree_;
