@@ -20,9 +20,8 @@
 
 using namespace improbable::phtree;
 
-TEST(PhTreeFlatSparseMapTest, SmokeTest) {
+TEST(PhTreeBptMapTest, SmokeTest) {
     const int max_size = 200;
-
     std::default_random_engine random_engine{0};
     std::uniform_int_distribution<> cube_distribution(0, max_size - 1);
 
@@ -55,9 +54,8 @@ TEST(PhTreeFlatSparseMapTest, SmokeTest) {
     }
 }
 
-TEST(PhTreeFlatSparseMapTest, SmokeTestWithTryEmplace) {
+TEST(PhTreeBptMapTest, SmokeTestWithTryEmplace) {
     const int max_size = 200;
-
     std::default_random_engine random_engine{0};
     std::uniform_int_distribution<> cube_distribution(0, max_size - 1);
 
@@ -89,9 +87,8 @@ TEST(PhTreeFlatSparseMapTest, SmokeTestWithTryEmplace) {
     }
 }
 
-TEST(PhTreeFlatSparseMapTest, SmokeTestWithErase) {
+TEST(PhTreeBptMapTest, SmokeTestWithErase) {
     const int max_size = 200;
-
     std::default_random_engine random_engine{0};
     std::uniform_int_distribution<> cube_distribution(0, max_size - 1);
 
@@ -139,9 +136,8 @@ TEST(PhTreeFlatSparseMapTest, SmokeTestWithErase) {
     }
 }
 
-TEST(PhTreeFlatSparseMapTest, SmokeTestLowerBound) {
+TEST(PhTreeBptMapTest, SmokeTestLowerBound) {
     const int max_size = 200;
-
     std::default_random_engine random_engine{0};
     std::uniform_int_distribution<> cube_distribution(0, max_size - 1);
 
