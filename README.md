@@ -51,7 +51,7 @@ More information about PH-Trees (including a Java implementation) is available [
 
 [When to use a PH-Tree](#when-to-use-a-ph-tree)
 
-[Optimising Performance](#optimising-performance)
+[Optimising Performance](#optimizing-performance)
 
 ### Compiling / Building
 
@@ -109,6 +109,8 @@ auto tree = PhTreeD<3, MyData>();
 PhPointD<3> p{1.1, 1.0, 10.};
 
 // Some operations
+tree.relocate(p1, p2); // Move an entry from point 1 to point 2
+tree.relocate_if(p1, p2, predicate); // Conditionally move an entry from point 1 to point 2
 tree.emplace(p, my_data);
 tree.emplace_hint(hint, p, my_data);
 tree.try_emplace(p, my_data);
@@ -124,7 +126,6 @@ tree.empty();
 tree.clear();
 
 // Multi-map only
-tree.relocate(p_old, p_new, value);
 tree.estimate_count(query);
 ```
 
@@ -447,7 +448,7 @@ heavily on the actual dataset, usage patterns, hardware, ... .
 * Scalability with the number of dimensions. The PH-Tree has been shown to deal "well" with high dimensional data (
   1000k+ dimensions). What does "well" mean?
     * It works very well for up to 30 (sometimes 50) dimensions. **Please note that the C++ implementation has not been
-      optimised nearly as much as the Java implementation.**
+      optimized nearly as much as the Java implementation.**
     * For more dimensions (Java was tested with 1000+ dimensions) the PH-Tree still has excellent insertion/deletion
       performance. However, the query performance cannot compete with specialised high-dim indexes such as cover-trees
       or pyramid-trees (these tend to be *very slow* on insertion/deletion though).
@@ -466,22 +467,25 @@ heavily on the actual dataset, usage patterns, hardware, ... .
 * PH-Trees are not very efficient in scenarios where queries tend to return large result sets in the order of 1000 or
   more.
 
-<a id="optimising-performance"></a>
+<a id="optimizing-performance"></a>
 
-### Optimising Performance
+### Optimizing Performance
 
 There are numerous ways to improve performance. The following list gives an overview over the possibilities.
 
 1) **Use `for_each` instead of iterators**. This should improve performance of queries by 10%-20%.
 
-2) **Use `emplace_hint` if possible**. When updating the position of an entry, the naive way is to use `erase()`
-   /`emplace()`. With `emplace_hint`, insertion can avoid navigation to the target node if the insertion coordinate is
-   close to the removal coordinate.
-    ```c++
-    auto iter = tree.find(old_position);
-    tree.erase(iter);
-    tree.emplace_hint(iter, new_position, value);
-    ```
+2) **Use `relocate()` / `relocate_if()` if possible**. When updating the position of an entry, the naive way is 
+   to use `erase()` / `emplace()`. With `relocate` / `relocate_if()`, insertion can avoid a lot of duplicate 
+   navigation in the tree if the new coordinate is close to the old coordinate.
+   ```c++
+   relocate(old_position, new_position);
+   relocate_if(old_position, new_position, [](const T& value) { return ...; });
+   ```
+   The multi-map version relocates all values unless a 'value' is specified to identify the value to be relocated: 
+   ```c++
+   relocate(old_position, new_position, value);
+   ```
 
 3) **Store pointers instead of large data objects**. For example, use `PhTree<3, MyLargeClass*>` instead of
    `PhTree<3, MyLargeClass>` if `MyLargeClass` is large.

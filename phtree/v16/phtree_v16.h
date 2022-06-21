@@ -265,8 +265,133 @@ class PhTreeV16 {
     }
 
     /*
+     * Relocate (move) an entry from one position to another, subject to a predicate.
+     *
+     * @param old_key
+     * @param new_key
+     * @param predicate
+     *
+     * @return  A pair, whose first element points to the possibly relocated value, and
+     *          whose second element is a bool that is true if the value was actually relocated.
+     */
+    template <typename PRED>
+    auto relocate_if(
+        const KeyT& old_key, const KeyT& new_key, PRED&& pred = [](const T& /* value */) {
+            return true;
+        }) {
+        auto pair = find_two(old_key, new_key, false);
+        auto& iter_old = pair.first;
+        auto& iter_new = pair.second;
+
+        if (iter_old.IsEnd() || !pred(*iter_old)) {
+            return 0;
+        }
+        // Are we inserting in same node and same quadrant? Or are the keys equal?
+        if (iter_old == iter_new) {
+            iter_old.GetCurrentResult()->SetKey(new_key);
+            return 1;
+        }
+
+        bool is_inserted = false;
+        auto* new_parent = iter_new.GetCurrentNodeEntry();
+        new_parent->GetNode().Emplace(
+            is_inserted, new_key, new_parent->GetNodePostfixLen(), std::move(*iter_old));
+        if (!is_inserted) {
+            return 0;
+        }
+
+        // Erase old value. See comments in erase() for details.
+        EntryT* old_node_entry = iter_old.GetCurrentNodeEntry();
+        if (iter_old.GetParentNodeEntry() == iter_new.GetCurrentNodeEntry()) {
+            // In this case the old_node_entry may have been invalidated by the previous insertion.
+            old_node_entry = iter_old.GetParentNodeEntry();
+        }
+        bool found = false;
+        while (old_node_entry) {
+            old_node_entry = old_node_entry->GetNode().Erase(
+                old_key, old_node_entry, old_node_entry != &root_, found);
+        }
+        assert(found);
+        return 1;
+    }
+
+    /*
+     * Tries to locate two entries that are 'close' to each other.
+     *
+     * Special behavior:
+     * - returns end() if old_key does not exist;
+     * - creates an entry for new_key if it does not exist yet and if ensure_new_entry_exists=true.
+     */
+    auto find_two(
+        const KeyT& old_key, const KeyT& new_key, bool ensure_new_entry_exists = false) const {
+        using Iter = IteratorWithParent<T, CONVERT>;
+        bit_width_t n_diverging_bits = NumberOfDivergingBits(old_key, new_key);
+
+        const EntryT* current_entry = &root_;           // An entry.
+        const EntryT* old_node_entry = nullptr;         // Node that contains entry to be removed
+        const EntryT* old_node_entry_parent = nullptr;  // Parent of the old_node_entry
+        const EntryT* new_node_entry = nullptr;         // Node that will contain  new entry
+        // Find node for removal
+        while (current_entry && current_entry->IsNode()) {
+            old_node_entry_parent = old_node_entry;
+            old_node_entry = current_entry;
+            auto postfix_len = old_node_entry->GetNodePostfixLen();
+            if (postfix_len + 1 >= n_diverging_bits) {
+                new_node_entry = old_node_entry;
+            }
+            current_entry = old_node_entry->GetNode().Find(old_key, postfix_len);
+        }
+        const EntryT* old_entry = current_entry;  // Entry to be removed
+
+        // Can we stop already?
+        if (old_entry == nullptr) {
+            auto iter = Iter(nullptr, nullptr, nullptr, converter_);
+            return std::make_pair(iter, iter);  // old_key not found!
+        }
+
+        // Are we inserting in same node and same quadrant? Or are the keys equal?
+        if (n_diverging_bits == 0 ||
+            (!ensure_new_entry_exists && old_node_entry->GetNodePostfixLen() >= n_diverging_bits)) {
+            auto iter = Iter(old_entry, old_node_entry, old_node_entry_parent, converter_);
+            return std::make_pair(iter, iter);
+        }
+
+        // Find node for insertion
+        auto new_entry = new_node_entry;
+        while (new_entry && new_entry->IsNode()) {
+            new_node_entry = new_entry;
+            new_entry = new_entry->GetNode().Find(new_key, new_entry->GetNodePostfixLen());
+        }
+
+        if (new_entry == nullptr && ensure_new_entry_exists) {
+            // We need to insert a new entry
+            bool is_inserted = false;
+            new_entry = &new_node_entry->GetNode().Emplace(
+                is_inserted, new_key, new_node_entry->GetNodePostfixLen());
+            assert(new_entry != nullptr);
+            // conflict?
+            if (old_node_entry_parent == new_node_entry) {
+                // In this case the old_node_entry may have been invalidated by the previous
+                // insertion.
+                old_node_entry = old_node_entry_parent;
+            }
+            old_entry = old_node_entry;
+            while (old_entry && old_entry->IsNode()) {
+                old_node_entry_parent = old_node_entry;
+                old_node_entry = old_entry;
+                old_entry = old_entry->GetNode().Find(old_key, old_entry->GetNodePostfixLen());
+            }
+            assert(old_entry != nullptr);
+        }
+
+        auto iter1 = Iter(old_entry, old_node_entry, old_node_entry_parent, converter_);
+        auto iter2 = Iter(new_entry, new_node_entry, nullptr, converter_);
+        return std::make_pair(iter1, iter2);
+    }
+
+    /*
      * Iterates over all entries in the tree. The optional filter allows filtering entries and nodes
-     * (=sub-trees) before returning / traversing them. By default all entries are returned. Filter
+     * (=sub-trees) before returning / traversing them. By default, all entries are returned. Filter
      * functions must implement the same signature as the default 'FilterNoOp'.
      *
      * @param callback The callback function to be called for every entry that matches the query.
@@ -410,7 +535,7 @@ class PhTreeV16 {
 
   private:
     size_t num_entries_;
-    // Contract: root_ contains a Node with 0 or more entries (the root node is the only Node
+    // Contract: root_ contains a Node with 0 or more entries. The root node is the only Node
     // that is allowed to have less than two entries.
     EntryT root_;
     CONVERT* converter_;

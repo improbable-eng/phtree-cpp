@@ -44,8 +44,7 @@ class PhTree {
     using QueryBox = typename CONVERTER::QueryBoxExternal;
 
     template <typename CONV = CONVERTER>
-    explicit PhTree(CONV&& converter = CONV())
-    : tree_{&converter_}, converter_{converter} {}
+    explicit PhTree(CONV&& converter = CONV()) : tree_{&converter_}, converter_{converter} {}
 
     PhTree(const PhTree& other) = delete;
     PhTree& operator=(const PhTree& other) = delete;
@@ -170,6 +169,44 @@ class PhTree {
     template <typename ITERATOR>
     size_t erase(const ITERATOR& iterator) {
         return tree_.erase(iterator);
+    }
+
+    /*
+     * This function attempts to remove a 'value' from 'old_key' and reinsert it for 'new_key'.
+     *
+     * The function will report _success_ in the following cases:
+     * - the value was removed from the old position and reinserted at the new position
+     * - the position and new position refer to the same bucket.
+     *
+     * The function will report _failure_ in the following cases:
+     * - The value was already present in the new position
+     * - The value was not present in the old position
+     *
+     * This method will _not_ remove the value from the old position if it is already present at the
+     * new position.
+     *
+     * @param old_key The old position
+     * @param new_key The new position
+     * @return '1' if the 'value' was moved, otherwise '0'.
+     */
+    auto relocate(const Key& old_key, const Key& new_key) {
+        return tree_.relocate_if(
+            converter_.pre(old_key), converter_.pre(new_key), [](const T&) { return true; });
+    }
+
+    /*
+     * Relocate (move) an entry from one position to another, subject to a predicate.
+     *
+     * @param old_key The old position
+     * @param new_key The new position
+     * @param predicate The predicate is called for every value before it is relocated.
+     *                  If the predicate returns 'false', the relocation is aborted.
+     * @return '1' if the 'value' was moved, otherwise '0'.
+     */
+    template <typename PRED>
+    auto relocate_if(const Key& old_key, const Key& new_key, PRED&& predicate) {
+        return tree_.relocate_if(
+            converter_.pre(old_key), converter_.pre(new_key), std::forward<PRED>(predicate));
     }
 
     /*
