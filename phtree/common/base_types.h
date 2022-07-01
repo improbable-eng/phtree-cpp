@@ -111,6 +111,10 @@ class PhBox {
         return min_ == other.min_ && max_ == other.max_;
     }
 
+    auto operator!=(const PhBox<DIM, SCALAR>& other) const -> bool {
+        return !(*this == other);
+    }
+
   private:
     Point min_;
     Point max_;

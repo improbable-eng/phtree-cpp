@@ -39,6 +39,7 @@ class PhTreeDebugHelper {
     template <typename TREE>
     static void CheckConsistency(const TREE& tree) {
         tree.GetInternalTree().GetDebugHelper().CheckConsistency();
+        tree.CheckConsistencyExternal();
     }
 
     /*

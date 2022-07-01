@@ -245,7 +245,7 @@ class PhTreeMultiMap {
      * to erase() and if no other modifications occurred.
      * The following is valid:
      *
-     * // Move value from key1 to key2
+     * // Move value from key1 to key2 (if you don't want to use relocate() ).
      * auto iter = tree.find(key1);
      * auto value = iter.second(); // The value may become invalid in erase()
      * erase(iter);
@@ -607,6 +607,15 @@ class PhTreeMultiMap {
     // This is used by PhTreeDebugHelper
     const auto& GetInternalTree() const {
         return tree_;
+    }
+
+    void CheckConsistencyExternal() const {
+        size_t n = 0;
+        for (const auto& bucket : tree_) {
+            assert(!bucket.empty());
+            n += bucket.size();
+        }
+        assert(n == size_);
     }
 
     template <typename OUTER_ITER>
