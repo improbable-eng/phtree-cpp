@@ -146,7 +146,7 @@ class IteratorNormal : public IteratorBase<PHTREE> {
             while (iter_bucket_ != iter_ph_->end()) {
                 // We filter only entries here, nodes are filtered elsewhere
                 if (iter_ph_.__Filter().IsBucketEntryValid(
-                        iter_ph_.GetCurrentResult()->GetKey(), *iter_bucket_)) {
+                        iter_ph_.GetEntry()->GetKey(), *iter_bucket_)) {
                     this->SetCurrentValue(&(*iter_bucket_));
                     return;
                 }

@@ -55,7 +55,7 @@ class IteratorWithParent : public IteratorWithFilter<T, CONVERT> {
      * The parent entry contains the parent node. The parent node is the node ABOVE the current node
      * which contains the current entry.
      */
-    EntryT* GetCurrentNodeEntry() const {
+    EntryT* GetNodeEntry() const {
         return const_cast<EntryT*>(current_node_);
     }
 
