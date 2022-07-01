@@ -356,6 +356,15 @@ class PhTree {
         return tree_;
     }
 
+    void CheckConsistencyExternal() const {
+        size_t n = 0;
+        for (const auto& entry : tree_) {
+            (void) entry;
+            ++n;
+        }
+        assert(n == size());
+    }
+
     v16::PhTreeV16<DimInternal, T, CONVERTER> tree_;
     CONVERTER converter_;
 };
