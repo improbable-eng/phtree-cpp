@@ -58,24 +58,50 @@ class Entry {
     , postfix_len_{static_cast<std::uint16_t>(postfix_len)} {}
 
     /*
-     * Construct entry with a new node.
+     * Construct entry with existing T (T is not movable).
      */
-    Entry(bit_width_t postfix_len) noexcept
-    : kd_key_()
-    , node_{std::make_unique<NodeT>()}
-    , union_type_{NODE}
-    , postfix_len_{static_cast<std::uint16_t>(postfix_len)} {}
+    template <typename ValueT2 = ValueT>
+    Entry(
+        const KeyT& k,
+        ValueT2&& value,
+        typename std::enable_if_t<!std::is_move_constructible_v<ValueT2>, int>::type = 0) noexcept
+    : kd_key_{k}, value_(value), union_type_{VALUE}, postfix_len_{0} {}
 
     /*
-     * Construct entry with existing T.
+     * Construct entry with existing T (T must be movable).
      */
-    Entry(const KeyT& k, ValueT&& value) noexcept
-    : kd_key_{k}, value_{std::move(value)}, union_type_{VALUE}, postfix_len_{0} {}
+    template <typename ValueT2 = ValueT>
+    Entry(
+        const KeyT& k,
+        ValueT2&& value,
+        typename std::enable_if_t<std::is_move_constructible_v<ValueT2>, int>::type = 0) noexcept
+    : kd_key_{k}, value_(std::forward<ValueT2>(value)), union_type_{VALUE}, postfix_len_{0} {}
 
     /*
-     * Construct entry with new T or moved T.
+     * Construct entry with new T or copied T (T is not movable).
      */
-    template <typename... Args>
+    template <
+        typename ValueT2 = ValueT,
+        typename = std::enable_if_t<!std::is_move_constructible_v<ValueT2>>>
+    explicit Entry(const KeyT& k, const ValueT& value) noexcept
+    : kd_key_{k}, value_(value), union_type_{VALUE}, postfix_len_{0} {}
+
+    /*
+     * Construct entry with new T or copied T (T is not movable, using T's default constructor).
+     */
+    template <
+        typename ValueT2 = ValueT,
+        typename = std::enable_if_t<!std::is_move_constructible_v<ValueT2>>>
+    explicit Entry(const KeyT& k) noexcept
+    : kd_key_{k}, value_(), union_type_{VALUE}, postfix_len_{0} {}
+
+    /*
+     * Construct entry with new T or moved T (T must be movable).
+     */
+    template <
+        typename... Args,
+        typename ValueT2 = ValueT,
+        typename = std::enable_if_t<std::is_move_constructible_v<ValueT2>>>
     explicit Entry(const KeyT& k, Args&&... args) noexcept
     : kd_key_{k}, value_(std::forward<Args>(args)...), union_type_{VALUE}, postfix_len_{0} {}
 
@@ -177,7 +203,11 @@ class Entry {
         if (union_type_ == NODE) {
             new (&node_) std::unique_ptr<NodeT>{std::move(other.node_)};
         } else if (union_type_ == VALUE) {
-            new (&value_) ValueT{std::move(other.value_)};
+            if constexpr (std::is_move_constructible_v<ValueT>) {
+                new (&value_) ValueT{std::move(other.value_)};
+            } else {
+                new (&value_) ValueT{other.value_};
+            }
         } else {
             assert(false && "Assigning from an EMPTY variant is a waste of time.");
         }
