@@ -27,56 +27,53 @@ namespace improbable::phtree::v16 {
  */
 template <typename EntryT>
 class IteratorBase {
-    using T = typename EntryT::OrigValueT;
-
   public:
-    explicit IteratorBase() noexcept : current_result_{nullptr} {}
-    explicit IteratorBase(const EntryT* current_result) noexcept
-    : current_result_{current_result} {}
+    explicit IteratorBase() noexcept : current_entry_{nullptr} {}
+    explicit IteratorBase(const EntryT* current_entry) noexcept : current_entry_{current_entry} {}
 
-    inline T& operator*() const noexcept {
-        assert(current_result_);
-        return current_result_->GetValue();
+    inline auto& operator*() const noexcept {
+        assert(current_entry_);
+        return current_entry_->GetValue();
     }
 
-    inline T* operator->() const noexcept {
-        assert(current_result_);
-        return &current_result_->GetValue();
+    inline auto* operator->() const noexcept {
+        assert(current_entry_);
+        return &current_entry_->GetValue();
     }
 
     inline friend bool operator==(
         const IteratorBase<EntryT>& left, const IteratorBase<EntryT>& right) noexcept {
-        return left.current_result_ == right.current_result_;
+        return left.current_entry_ == right.current_entry_;
     }
 
     inline friend bool operator!=(
         const IteratorBase<EntryT>& left, const IteratorBase<EntryT>& right) noexcept {
-        return left.current_result_ != right.current_result_;
+        return left.current_entry_ != right.current_entry_;
     }
 
-    T& second() const {
-        return current_result_->GetValue();
+    auto& second() const {
+        return current_entry_->GetValue();
     }
 
     [[nodiscard]] inline bool IsEnd() const noexcept {
-        return current_result_ == nullptr;
+        return current_entry_ == nullptr;
     }
 
-    inline EntryT* GetCurrentResult() const noexcept {
-        return const_cast<EntryT*>(current_result_);
+    inline EntryT* GetEntry() const noexcept {
+        return const_cast<EntryT*>(current_entry_);
     }
 
   protected:
     void SetFinished() {
-        current_result_ = nullptr;
+        current_entry_ = nullptr;
     }
 
-    void SetCurrentResult(const EntryT* current_result) {
-        current_result_ = current_result;
+    void SetCurrentResult(const EntryT* current_entry) {
+        current_entry_ = current_entry;
     }
 
   protected:
-    const EntryT* current_result_;
+    const EntryT* current_entry_;
 };
 
 template <typename EntryT>
@@ -96,11 +93,11 @@ class IteratorWithFilter
     explicit IteratorWithFilter(const CONVERT* converter, F&& filter) noexcept
     : IteratorBase<EntryT>(nullptr), converter_{converter}, filter_{std::forward<F>(filter)} {}
 
-    explicit IteratorWithFilter(const EntryT* current_result, const CONVERT* converter) noexcept
-    : IteratorBase<EntryT>(current_result), converter_{converter}, filter_{FILTER()} {}
+    explicit IteratorWithFilter(const EntryT* current_entry, const CONVERT* converter) noexcept
+    : IteratorBase<EntryT>(current_entry), converter_{converter}, filter_{FILTER()} {}
 
     auto first() const {
-        return converter_->post(this->current_result_->GetKey());
+        return converter_->post(this->current_entry_->GetKey());
     }
 
     auto& __Filter() {

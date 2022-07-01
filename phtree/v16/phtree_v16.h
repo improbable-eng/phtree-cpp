@@ -253,18 +253,18 @@ class PhTreeV16 {
         }
         if constexpr (std::is_same_v<ITERATOR, IteratorWithParent<T, CONVERT>>) {
             const auto& iter_rich = static_cast<const IteratorWithParent<T, CONVERT>&>(iterator);
-            if (!iter_rich.GetCurrentNodeEntry() || iter_rich.GetCurrentNodeEntry() == &root_) {
+            if (!iter_rich.GetNodeEntry() || iter_rich.GetNodeEntry() == &root_) {
                 // Do _not_ use the root entry, see erase(key). Start searching from the top.
-                return erase(iter_rich.GetCurrentResult()->GetKey());
+                return erase(iter_rich.GetEntry()->GetKey());
             }
             bool found = false;
-            EntryT* entry = iter_rich.GetCurrentNodeEntry();
-            entry->GetNode().Erase(iter_rich.GetCurrentResult()->GetKey(), entry, true, found);
+            EntryT* entry = iter_rich.GetNodeEntry();
+            entry->GetNode().Erase(iter_rich.GetEntry()->GetKey(), entry, true, found);
             num_entries_ -= found;
             return found;
         }
         // There may be no entry because not every iterator sets it.
-        return erase(iterator.GetCurrentResult()->GetKey());
+        return erase(iterator.GetEntry()->GetKey());
     }
 
     /*
@@ -288,12 +288,12 @@ class PhTreeV16 {
         }
         // Are we inserting in same node and same quadrant? Or are the keys equal?
         if (iter_old == iter_new) {
-            iter_old.GetCurrentResult()->SetKey(new_key);
+            iter_old.GetEntry()->SetKey(new_key);
             return 1;
         }
 
         bool is_inserted = false;
-        auto* new_parent = iter_new.GetCurrentNodeEntry();
+        auto* new_parent = iter_new.GetNodeEntry();
         new_parent->GetNode().Emplace(
             is_inserted, new_key, new_parent->GetNodePostfixLen(), std::move(*iter_old));
         if (!is_inserted) {
@@ -301,8 +301,8 @@ class PhTreeV16 {
         }
 
         // Erase old value. See comments in erase() for details.
-        EntryT* old_node_entry = iter_old.GetCurrentNodeEntry();
-        if (iter_old.GetParentNodeEntry() == iter_new.GetCurrentNodeEntry()) {
+        EntryT* old_node_entry = iter_old.GetNodeEntry();
+        if (iter_old.GetParentNodeEntry() == iter_new.GetNodeEntry()) {
             // In this case the old_node_entry may have been invalidated by the previous insertion.
             old_node_entry = iter_old.GetParentNodeEntry();
         }
