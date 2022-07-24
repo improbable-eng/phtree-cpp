@@ -263,17 +263,3 @@ cc_test(
         "//phtree/testing/gtest_main",
     ],
 )
-
-cc_test(
-    name = "phtree_test_issues",
-    timeout = "long",
-    srcs = [
-        "phtree_test_issues.cc",
-    ],
-    linkstatic = True,
-    deps = [
-        ":phtree",
-        "//phtree/testing/gtest_main",
-    ],
-)
-
