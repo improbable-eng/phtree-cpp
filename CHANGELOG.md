@@ -36,6 +36,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - **API BREAKING CHANGE**: Allow filtering on buckets in multimaps. Multimap filters have different functions
   and function signatures than normal `PhTree` filters. [#26](https://github.com/tzaeschke/phtree-cpp/issues/26)
 
+### Fixed
+- Fixed two compilation problems and a memory leak when compiling with Visual Studio 2019.
+  (also added `msan` support). [#64](https://github.com/tzaeschke/phtree-cpp/pull/64)
+
 ## [1.2.0] - 2022-04-14
 ### Changed
 - Bugfix: FilterSphere was not working correctly. [#27](https://github.com/tzaeschke/phtree-cpp/issues/27)
