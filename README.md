@@ -291,7 +291,14 @@ double resultung_float = ((double)my_int) / 1000000.;
 It is obvious that this approach leads to a loss of numerical precision. Moreover, the loss of precision depends on the
 actual range of the double values and the constant. The chosen constant should probably be as large as possible but
 small enough such that converted values do not exceed the 64bit limit of `std::int64_t`. Note that the PH-Tree provides
-several `ConverterMultiply` implementations for point/box and double/float.
+several `ConverterMultiply` implementations for point/box and double/float. For example:
+
+```C++
+// Multiply converter that multiplies by 1'000'000 (and divides by 1).
+auto tree = PhTreeD<DIM, T, ConverterMultiply<DIM, 1000000, 1>>();
+```
+
+You can also write your own converter. For example:
 
 ```C++
 template <dimension_t DIM>
@@ -506,7 +513,7 @@ There are numerous ways to improve performance. The following list gives an over
       caused by faster operation in the converter itself but by a more compact tree shape. The example shows how to use
       a converter that multiplies coordinates by 100'000, thus preserving roughly 5 fractional digits:
 
-      `PhTreeD<DIM, T, ConverterMultiply<3, 100 * 1000, 1>>`
+      `PhTreeD<DIM, T, ConverterMultiply<3, 100 * 1000, 1>>()`
 
 6) **Use custom key types**. By default, the PH-Tree accepts only coordinates in the form of its own key types, such
    as `PhPointD`, `PhBoxF` or similar. To avoid conversion from custom types to PH-Tree key types, custom classes can
