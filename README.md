@@ -538,66 +538,71 @@ There are numerous ways to improve performance. The following list gives an over
 
 ## Compiling the PH-Tree
 
-This section will guide you through the initial build system and IDE you need to go through in order to build and run
-custom versions of the PH-Tree on your machine.
+The PH-Tree index itself is a *header only* library, it can be used by simply copying all headers in the `phtree` 
+folder. 
+The examples, tests and benchmarks can be build with bazel or cmake.  
 
 <a id="build-system-and-dependencies"></a>
 
 ### Build system & dependencies
 
-PH-Tree can be built with *cmake 3.14* or [Bazel](https://bazel.build) as build system. All code is written in C++
-targeting the C++17 standard. The code has been verified to compile on Linux with Clang 9, 10, 11, 12, and GCC 9, 10,
-11, and on Windows with Visual Studio 2019.
-
-#### Ubuntu Linux
-
-* Installing [clang](https://apt.llvm.org/)
-
-* Installing [bazel](https://docs.bazel.build/versions/main/install-ubuntu.html)
-
-* To install [cmake](https://launchpad.net/~hnakamur/+archive/ubuntu/cmake):
-
+PH-Tree can be built with [Bazel](https://bazel.build) (primary build system) or with 
+[cmake](https://cmake.org/) *3.14*. 
+All code is written in C++ targeting the C++17 standard. 
+The code has been verified to compile on Linux with Clang 11 and GCC 9, and on Windows with Visual Studio 2019
+(except benchmarks, which don't work wi VS).
+The PH-tree makes use of vectorization, so suggested compilation options for clang/gcc are:
 ```
-sudo add-apt-repository ppa:hnakamur/libarchive
-sudo add-apt-repository ppa:hnakamur/libzstd
-sudo add-apt-repository ppa:hnakamur/cmake
-sudo apt update
-sudo apt install cmake
+-O3 -mavx
 ```
 
-#### Windows
-
-To build on Windows, you'll need to have a version of Visual Studio 2019 installed (likely Professional), in addition to
-[Bazel](https://docs.bazel.build/versions/master/windows.html) or
-[cmake](https://cmake.org/download/).
 
 <a id="bazel"></a>
 
 ### Bazel
 
 Once you have set up your dependencies, you should be able to build the PH-Tree repository by running:
-
 ```
 bazel build ...
 ```
 
 Similarly, you can run all unit tests with:
-
 ```
 bazel test ...
 ```
 
+Benchmarks:
+```
+bazel run //benchmark:update_mm_d_benchmark --config=benchmark  -- --benchmark_counters_tabular=true
+```
+
+
 <a id="cmake"></a>
 
 ### cmake
-
+`cmake` uses `ccache` when available.
 ```
 mkdir build
 cd build
 cmake ..
 cmake --build .
+```
+
+Run example:
+```
+cmake .. -DPHTREE_BUILD_EXAMPLES=ON
+cmake --build .
 ./example/Example
 ```
+
+Run tests:
+```
+cmake .. -DPHTREE_BUILD_TESTS=ON
+cmake --build .
+ctest
+```
+Next to example (`PHTREE_BUILD_EXAMPLES`) there are also tests (`PHTREE_BUILD_TESTS`) and 
+benchmarks (`PHTREE_BUILD_BENCHMARKS`). To build all, use `PHTREE_BUILD_ALL`.
 
 ## Further Resources
 
