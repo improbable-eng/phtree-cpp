@@ -62,5 +62,3 @@ filegroup(
     name = "dot_clang_format",
     srcs = [".clang-format"],
 )
-
-exports_files(["phtree"])
