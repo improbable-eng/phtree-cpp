@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.14)
 
 # set the project name
-project(phtree VERSION 1.2.0
+project(phtree VERSION 1.3.0
         DESCRIPTION "PH-Tree C++"
         LANGUAGES CXX)
 
