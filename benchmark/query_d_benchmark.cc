@@ -60,11 +60,11 @@ class IndexBenchmark {
     void CreateQuery(BoxType<DIM>& query_box);
 
     const TestGenerator data_type_;
-    const int num_entities_;
+    const size_t num_entities_;
     const double avg_query_result_size_;
 
     constexpr int query_endge_length() {
-        return GLOBAL_MAX * pow(avg_query_result_size_ / (double)num_entities_, 1. / (double)DIM);
+        return (int)(GLOBAL_MAX * pow(avg_query_result_size_ / (double)num_entities_, 1. / (double)DIM));
     };
 
     TreeType<DIM> tree_;
@@ -106,8 +106,8 @@ template <dimension_t DIM, QueryType QUERY_TYPE>
 void IndexBenchmark<DIM, QUERY_TYPE>::SetupWorld(benchmark::State& state) {
     logging::info("Setting up world with {} entities and {} dimensions.", num_entities_, DIM);
     CreatePointData<DIM>(points_, data_type_, num_entities_, 0, GLOBAL_MAX);
-    for (int i = 0; i < num_entities_; ++i) {
-        tree_.emplace(points_[i], i);
+    for (size_t i = 0; i < num_entities_; ++i) {
+        tree_.emplace(points_[i], (int)i);
     }
 
     state.counters["total_result_count"] = benchmark::Counter(0);
@@ -145,7 +145,7 @@ size_t Count_MMFE(TreeType<DIM>& tree, BoxType<DIM>& query_box) {
 
 template <dimension_t DIM, QueryType QUERY_TYPE>
 void IndexBenchmark<DIM, QUERY_TYPE>::QueryWorld(benchmark::State& state, BoxType<DIM>& query_box) {
-    int n = 0;
+    size_t n = 0;
     switch (QUERY_TYPE) {
     case MIN_MAX_ITER:
         n = Count_MMI(tree_, query_box);

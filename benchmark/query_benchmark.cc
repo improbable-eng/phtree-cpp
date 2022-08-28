@@ -49,11 +49,11 @@ class IndexBenchmark {
     void CreateQuery(PhBox<DIM>& query);
 
     const TestGenerator data_type_;
-    const int num_entities_;
+    const size_t num_entities_;
     const double avg_query_result_size_;
 
     constexpr int query_endge_length() {
-        return GLOBAL_MAX * pow(avg_query_result_size_ / (double)num_entities_, 1. / (double)DIM);
+        return (int)(GLOBAL_MAX * pow(avg_query_result_size_ / (double)num_entities_, 1. / (double)DIM));
     };
 
     PhTree<DIM, int> tree_;
@@ -94,8 +94,8 @@ template <dimension_t DIM>
 void IndexBenchmark<DIM>::SetupWorld(benchmark::State& state) {
     logging::info("Setting up world with {} entities and {} dimensions.", num_entities_, DIM);
     CreatePointData<DIM>(points_, data_type_, num_entities_, 0, GLOBAL_MAX);
-    for (int i = 0; i < num_entities_; ++i) {
-        tree_.emplace(points_[i], i);
+    for (size_t i = 0; i < num_entities_; ++i) {
+        tree_.emplace(points_[i], (int)i);
     }
 
     state.counters["total_result_count"] = benchmark::Counter(0);
@@ -125,8 +125,8 @@ void IndexBenchmark<DIM>::CreateQuery(PhBox<DIM>& query_box) {
     // scale to ensure query lies within boundary
     double scale = (GLOBAL_MAX - (double)length) / GLOBAL_MAX;
     for (dimension_t d = 0; d < DIM; ++d) {
-        auto s = cube_distribution_(random_engine_);
-        s = s * scale;
+        scalar_64_t s = cube_distribution_(random_engine_);
+        s = (scalar_64_t)(s * scale);
         query_box.min()[d] = s;
         query_box.max()[d] = s + length;
     }
