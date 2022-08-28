@@ -23,47 +23,33 @@ More information about PH-Trees (including a Java implementation) is available [
 
 ### API Usage
 
-[Key Types](#key-types)
-
-[Basic operations](#basic-operations)
-
-[Queries](#queries)
-
-* [for_each](#for-each-example)
-
-* [Iterators](#iterator-examples)
-
-* [Filters](#filters)
-
-* [Filters for MultiMaps](#filters-for-multimaps)
-
-* [Distance Functions](#distance-functions)
-
-[Converters](#converters)
-
-[Custom Key Types](#custom-key-types)
-
-[Restrictions](#restrictions)
-
-[Troubleshooting / FAQ](#troubleshooting-faq)
+* [Key Types](#key-types)
+* [Basic operations](#basic-operations)
+* [Queries](#queries)
+  * [for_each](#for-each-example)
+  * [Iterators](#iterator-examples)
+  * [Filters](#filters)
+  * [Filters for MultiMaps](#filters-for-multimaps)
+  * [Distance Functions](#distance-functions)
+* [Converters](#converters)
+* [Custom Key Types](#custom-key-types)
+* [Restrictions](#restrictions)
+* [Troubleshooting / FAQ](#troubleshooting-faq)
 
 ### Performance
 
-[When to use a PH-Tree](#when-to-use-a-ph-tree)
-
-[Optimising Performance](#optimizing-performance)
+* [When to use a PH-Tree](#when-to-use-a-ph-tree)
+* [Optimising Performance](#optimizing-performance)
 
 ### Compiling / Building
 
-[Build system & dependencies](#build-system-and-dependencies)
-
-[bazel](#bazel)
-
-[cmake](#cmake)
+* [Build system & dependencies](#build-system-and-dependencies)
+* [bazel](#bazel)
+* [cmake](#cmake)
 
 ## Further Resources
 
-[Theory](#theory)
+* [Theory](#theory)
 
 ----------------------------------
 
