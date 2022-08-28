@@ -6,6 +6,19 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 ### Added
+- Nothing.
+
+### Changed
+- Nothing.
+
+### Removed
+- Nothing.
+
+### Fixed
+- Nothing.
+
+## [1.3.0] - 2022-08-28
+### Added
 - Added flag to relocate() allow short cutting in case of identical keys.
   [#68](https://github.com/tzaeschke/phtree-cpp/issues/68)
 - Added tested support for move-only and copy-only value objects.
@@ -136,8 +149,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Nothing.
 
 
-[Unreleased]: https://github.com/improbable-eng/phtree-cpp/compare/v1.2.0...HEAD
-[1.2.0]: https://github.com/improbable-eng/phtree-cpp/compare/v1.2.0...v1.1.0
+[Unreleased]: https://github.com/improbable-eng/phtree-cpp/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/improbable-eng/phtree-cpp/compare/v1.2.0...v1.3.0
+[1.2.0]: https://github.com/improbable-eng/phtree-cpp/compare/v1.1.0...v1.2.0
 [1.1.1]: https://github.com/improbable-eng/phtree-cpp/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/improbable-eng/phtree-cpp/compare/v1.0.0...v1.1.0
 [1.0.1]: https://github.com/improbable-eng/phtree-cpp/compare/v1.0.0...v1.0.1
