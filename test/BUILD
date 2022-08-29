@@ -8,7 +8,7 @@ cc_test(
     ],
     linkstatic = True,
     deps = [
-        "//phtree:phtree",
+        "//phtree",
         "//test/testing/gtest_main",
     ],
 )
@@ -21,7 +21,7 @@ cc_test(
     ],
     linkstatic = True,
     deps = [
-        "//phtree:phtree",
+        "//phtree",
         "//test/testing/gtest_main",
     ],
 )
@@ -34,7 +34,7 @@ cc_test(
     ],
     linkstatic = True,
     deps = [
-        "//phtree:phtree",
+        "//phtree",
         "//test/testing/gtest_main",
     ],
 )
@@ -47,7 +47,7 @@ cc_test(
     ],
     linkstatic = True,
     deps = [
-        "//phtree:phtree",
+        "//phtree",
         "//test/testing/gtest_main",
     ],
 )
@@ -60,7 +60,7 @@ cc_test(
     ],
     linkstatic = True,
     deps = [
-        "//phtree:phtree",
+        "//phtree",
         "//test/testing/gtest_main",
     ],
 )
@@ -73,7 +73,7 @@ cc_test(
     ],
     linkstatic = True,
     deps = [
-        "//phtree:phtree",
+        "//phtree",
         "//test/testing/gtest_main",
     ],
 )
@@ -86,7 +86,7 @@ cc_test(
     ],
     linkstatic = True,
     deps = [
-        "//phtree:phtree",
+        "//phtree",
         "//test/testing/gtest_main",
     ],
 )
@@ -99,7 +99,7 @@ cc_test(
     ],
     linkstatic = True,
     deps = [
-        "//phtree:phtree",
+        "//phtree",
         "//test/testing/gtest_main",
     ],
 )
@@ -112,7 +112,7 @@ cc_test(
     ],
     linkstatic = True,
     deps = [
-        "//phtree:phtree",
+        "//phtree",
         "//test/testing/gtest_main",
     ],
 )
@@ -125,7 +125,7 @@ cc_test(
     ],
     linkstatic = True,
     deps = [
-        "//phtree:phtree",
+        "//phtree",
         "//test/testing/gtest_main",
     ],
 )
@@ -138,7 +138,7 @@ cc_test(
     ],
     linkstatic = True,
     deps = [
-        "//phtree:phtree",
+        "//phtree",
         "//test/testing/gtest_main",
     ],
 )
@@ -151,7 +151,7 @@ cc_test(
     ],
     linkstatic = True,
     deps = [
-        "//phtree:phtree",
+        "//phtree",
         "//test/testing/gtest_main",
     ],
 )
@@ -164,7 +164,7 @@ cc_test(
     ],
     linkstatic = True,
     deps = [
-        "//phtree:phtree",
+        "//phtree",
         "//test/testing/gtest_main",
     ],
 )
@@ -177,7 +177,7 @@ cc_test(
     ],
     linkstatic = True,
     deps = [
-        "//phtree:phtree",
+        "//phtree",
         "//test/testing/gtest_main",
     ],
 )
@@ -190,7 +190,7 @@ cc_test(
     ],
     linkstatic = True,
     deps = [
-        "//phtree:phtree",
+        "//phtree",
         "//test/testing/gtest_main",
     ],
 )
@@ -203,7 +203,7 @@ cc_test(
     ],
     linkstatic = True,
     deps = [
-        "//phtree:phtree",
+        "//phtree",
         "//test/testing/gtest_main",
     ],
 )
@@ -216,7 +216,7 @@ cc_test(
     ],
     linkstatic = True,
     deps = [
-        "//phtree:phtree",
+        "//phtree",
         "//test/testing/gtest_main",
     ],
 )
@@ -229,7 +229,7 @@ cc_test(
     ],
     linkstatic = True,
     deps = [
-        "//phtree:phtree",
+        "//phtree",
         "//test/testing/gtest_main",
     ],
 )
@@ -242,7 +242,7 @@ cc_test(
     ],
     linkstatic = True,
     deps = [
-        "//phtree:phtree",
+        "//phtree",
         "//test/testing/gtest_main",
     ],
 )
@@ -255,8 +255,7 @@ cc_test(
     ],
     linkstatic = True,
     deps = [
-        "//phtree:phtree",
+        "//phtree",
         "//test/testing/gtest_main",
     ],
 )
-
