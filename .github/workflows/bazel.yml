@@ -1,6 +1,6 @@
 name: Bazel build
 
-on: [push]
+on: [ push ]
 
 jobs:
   build:
@@ -23,6 +23,14 @@ jobs:
         with:
           path: "~/.cache/bazel"
           key: bazel
+
+      - name: Clang format
+        shell: bash
+        run: ./ci/linting/clang-format.sh
+
+      - name: Bazel format
+        shell: bash
+        run: ./ci/linting/buildifier.sh
 
       - name: Build
         shell: bash

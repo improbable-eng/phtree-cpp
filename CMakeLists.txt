@@ -15,6 +15,7 @@ if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose Release or Debug" FORCE)
 endif ()
 
+
 # ---------------------------------------------------------------------------------------
 # Build options
 # ---------------------------------------------------------------------------------------
@@ -28,9 +29,14 @@ option(PHTREE_BUILD_EXAMPLES "Build examples" OFF)
 # testing options
 option(PHTREE_BUILD_TESTS "Build tests" OFF)
 #option(PHTREE_BUILD_TESTS_HO "Build tests using the header only version" OFF)
+option(PHTREE_CODE_COVERAGE "Collect coverage from test library" OFF)
+if (PHTREE_CODE_COVERAGE)
+    set(PHTREE_BUILD_TESTS ON)
+endif ()
 
 # bench options
 option(PHTREE_BUILD_BENCHMARKS "Build benchmarks (Requires https://github.com/google/benchmark.git to be installed)" OFF)
+
 
 # ---------------------------------------------------------------------------------------
 # Compiler config
@@ -78,6 +84,9 @@ else ()
     else ()
         set(CMAKE_CXX_FLAGS_RELEASE "-O3 -mavx")
     endif ()
+    if (PHTREE_CODE_COVERAGE)
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Werror -Wa,-mbig-obj")
+    endif ()
 endif ()
 
 # ---------------------------------------------------------------------------------------
@@ -90,7 +99,7 @@ if (PHTREE_BUILD_EXAMPLES OR PHTREE_BUILD_ALL)
     add_subdirectory(examples)
 endif ()
 
-if (!MSVC AND (PHTREE_BUILD_BENCHMARKS OR PHTREE_BUILD_ALL))
+if ((PHTREE_BUILD_BENCHMARKS OR PHTREE_BUILD_ALL) AND NOT MSVC)
     message(STATUS "Generating benchmarks")
     add_subdirectory(benchmark)
 endif ()

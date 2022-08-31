@@ -1,4 +1,13 @@
-**This is a fork of [Improbable's PH-tree](https://github.com/improbable-eng/phtree-cpp)**.
+**This is a fork of [Improbable's (currently unmaintained) PH-tree](https://github.com/improbable-eng/phtree-cpp)**.
+
+Multi-dimensional / spatial index with very fast insert/erase/relocate operations and scalability with large datasets. 
+This library is C++ / header only.
+
+![Bazel Linux build](https://github.com/tzaeschke/phtree-cpp/actions/workflows/bazel.yml/badge.svg)
+![CMake Linux build](https://github.com/tzaeschke/phtree-cpp/actions/workflows/cmake.yml/badge.svg)
+![CMake Windows build](https://github.com/tzaeschke/phtree-cpp/actions/workflows/cmake-windows.yml/badge.svg)
+[![codecov](https://codecov.io/gh/tzaeschke/phtree-cpp/branch/master/graph/badge.svg?token=V5XVRQG754)](https://codecov.io/gh/tzaeschke/phtree-cpp)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 # PH-Tree C++
 
