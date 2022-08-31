@@ -68,7 +68,7 @@ More information about PH-Trees (including a Java implementation) is available [
 
 #### Key Types
 
-The **PH-Tree Map** supports out of the box five types:
+The **PH-Tree Map** has five predefined tree types:
 
 - `PhTreeD` uses `PhPointD` keys, which are vectors/points of 64 bit `double`.
 - `PhTreeF` uses `PhPointF` keys, which are vectors/points of 32 bit `float`.
@@ -76,18 +76,18 @@ The **PH-Tree Map** supports out of the box five types:
 - `PhTreeBoxF` uses `PhBoxF` keys, which consist of two `PhPointF` that define an axis-aligned rectangle/box.
 - `PhTree` uses `PhPoint` keys, which are vectors/points of `std::int64`
 
-The **PH-Tree MultiMap** supports out of the box three types:
+The **PH-Tree MultiMap** has three predefined tree types:
 
 - `PhTreeMultiMapD` uses `PhPointD` keys, which are vectors/points of 64 bit `double`.
 - `PhTreeMultiMapBoxD` uses `PhBoxD` keys, which consist of two `PhPointD` that define an axis-aligned rectangle/box.
 - `PhTreeMultiMap` uses `PhPoint` keys, which are vectors/points of `std::int64`
 
-Additional tree types can be defined easily analogous to the types above, please refer to the declaration of the tree
+Additional key types and tree types can be defined easily analogous to the types above, please refer to the declaration of the 
 types for an example. Support for custom key classes (points and boxes) as well as custom coordinate mappings can be
 implemented using custom `Converter` classes, see below. The `PhTreeMultiMap` is by default backed
 by `std::unordered_set` but this can be changed via a template parameter.
 
-The `PhTree` and `PhTreeMultiMap` types are available from `phtree.h` and `phtree_multimap.h`.
+The `PhTree` and `PhTreeMultiMap` types are declared in `phtree.h` and `phtree_multimap.h`.
 
 <a id="basic-operations"></a>
 
