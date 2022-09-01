@@ -5,7 +5,7 @@ This library is C++ / header only.
 
 ![Bazel Linux build](https://github.com/tzaeschke/phtree-cpp/actions/workflows/bazel.yml/badge.svg)
 ![CMake Linux build](https://github.com/tzaeschke/phtree-cpp/actions/workflows/cmake.yml/badge.svg)
-![CMake Windows build](https://github.com/tzaeschke/phtree-cpp/actions/workflows/cmake-windows.yml/badge.svg)
+![CMake MSBuild 17.3.1](https://github.com/tzaeschke/phtree-cpp/actions/workflows/cmake-windows.yml/badge.svg)
 [![codecov](https://codecov.io/gh/tzaeschke/phtree-cpp/branch/master/graph/badge.svg?token=V5XVRQG754)](https://codecov.io/gh/tzaeschke/phtree-cpp)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
