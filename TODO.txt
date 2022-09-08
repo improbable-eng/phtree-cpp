@@ -74,3 +74,5 @@ Use custom binary search:
         return __first - const_first;
     }
 
+-- Installing: /usr/local/share/phtree/cmake/phtreeConfigVersion.cmake
+-- Installing: /usr/local/include/phtree
