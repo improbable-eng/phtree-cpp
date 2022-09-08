@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.14)
 
-# set the project name
 project(phtree VERSION 1.3.0
         DESCRIPTION "PH-Tree C++"
+        HOMEPAGE_URL "https://github.com/tzaeschke/phtree-cpp"
         LANGUAGES CXX)
 
 
@@ -19,16 +19,13 @@ endif ()
 # ---------------------------------------------------------------------------------------
 # Build options
 # ---------------------------------------------------------------------------------------
-# example options
 option(PHTREE_BUILD_ALL "Build examples, tests and benchmarks" OFF)
 
 # example options
 option(PHTREE_BUILD_EXAMPLES "Build examples" OFF)
-#option(PHTREE_BUILD_EXAMPLE_HO "Build header only example" OFF)
 
 # testing options
 option(PHTREE_BUILD_TESTS "Build tests" OFF)
-#option(PHTREE_BUILD_TESTS_HO "Build tests using the header only version" OFF)
 option(PHTREE_CODE_COVERAGE "Collect coverage from test library" OFF)
 if (PHTREE_CODE_COVERAGE)
     set(PHTREE_BUILD_TESTS ON)
@@ -57,8 +54,7 @@ if (NOT CMAKE_CXX_STANDARD)
 endif ()
 
 if (MSVC)
-    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /std:c++17 /Wall")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /std:c++17")
+    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Wall")
     set(CMAKE_CXX_FLAGS_RELEASE "/O2")
 
     if (PHTREE_BUILD_TESTS OR PHTREE_BUILD_ALL)
@@ -78,7 +74,7 @@ if (MSVC)
         # set(BENCHMARK_ENABLE_GTEST_TESTS OFF)
     endif ()
 else ()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Werror")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror")
     if (PHTREE_BUILD_BENCHMARKS)
         set(CMAKE_CXX_FLAGS_RELEASE "-O3 -mavx -pthread")
     else ()
@@ -93,7 +89,17 @@ endif ()
 # ---------------------------------------------------------------------------------------
 # Build binaries
 # ---------------------------------------------------------------------------------------
-add_subdirectory(phtree)
+
+# ---------------------------------------------------------------------------------------
+# Header only version
+# ---------------------------------------------------------------------------------------
+add_library(phtree INTERFACE)
+add_library(phtree::phtree ALIAS phtree)
+target_compile_features(phtree INTERFACE cxx_std_17)
+
+target_include_directories(phtree INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 
 if (PHTREE_BUILD_EXAMPLES OR PHTREE_BUILD_ALL)
     message(STATUS "Generating examples")
@@ -107,26 +113,6 @@ endif ()
 
 if (PHTREE_BUILD_TESTS OR PHTREE_BUILD_ALL)
     message(STATUS "Generating tests")
-    if (FALSE)
-        add_compile_definitions(GTEST_HAS_ABSL=0)
-        add_compile_definitions(GTEST_OS_WINDOWS_MOBILE=0)
-        if (MSVC)
-            add_compile_definitions(GTEST_OS_WINDOWS_MINGW=0)
-        endif ()
-        add_compile_definitions(GTEST_OS_LINUX_ANDROID=0)
-        if (LINUX)
-            add_compile_definitions(GTEST_OS_LINUX=1)
-        else ()
-            add_compile_definitions(GTEST_OS_LINUX=0)
-        endif ()
-        add_compile_definitions(
-                GTEST_OS_WINDOWS_MOBILE=0
-                GTEST_OS_WINDOWS_PHONE=0
-                GTEST_OS_WINDOWS_RT=0
-                GTEST_OS_ESP8266=0
-                GTEST_OS_XTENSA=0)
-    endif ()
-
     enable_testing()
     include(GoogleTest)
     add_subdirectory(test)

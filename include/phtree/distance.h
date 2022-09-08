@@ -17,12 +17,8 @@
 #ifndef PHTREE_COMMON_DISTANCES_H
 #define PHTREE_COMMON_DISTANCES_H
 
-#include "base_types.h"
-#include "bits.h"
+#include "common/common.h"
 #include "converter.h"
-#include "flat_array_map.h"
-#include "flat_sparse_map.h"
-#include "tree_stats.h"
 #include <cassert>
 #include <cmath>
 #include <functional>

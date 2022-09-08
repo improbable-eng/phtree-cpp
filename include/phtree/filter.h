@@ -17,18 +17,13 @@
 #ifndef PHTREE_COMMON_FILTERS_H
 #define PHTREE_COMMON_FILTERS_H
 
-#include "base_types.h"
-#include "bits.h"
 #include "converter.h"
-#include "flat_array_map.h"
-#include "flat_sparse_map.h"
-#include "tree_stats.h"
+#include "distance.h"
 #include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <functional>
 #include <limits>
-#include <sstream>
 
 namespace improbable::phtree {
 

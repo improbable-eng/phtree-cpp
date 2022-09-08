@@ -32,6 +32,9 @@ set_target_properties(gtest_main PROPERTIES FOLDER extern)
 if (PHTREE_CODE_COVERAGE)
     package_add_test_main(all_tests
             all_tests.cc
+            converter_test.cc
+            distance_test.cc
+            filter_test.cc
             phtree_test.cc
             phtree_test_const_values.cc
             phtree_test_issues.cc
@@ -57,9 +60,6 @@ if (PHTREE_CODE_COVERAGE)
             common/base_types_test.cc
             common/bits_test.cc
             common/common_test.cc
-            common/converter_test.cc
-            common/distance_test.cc
-            common/filter_test.cc
             common/flat_array_map_test.cc
             common/flat_sparse_map_test.cc)
     target_compile_definitions(all_tests PUBLIC SKIP_TEST_MEMORY_LEAKS=ON)
@@ -91,6 +91,10 @@ else ()
     package_add_test(phtree_multimap_d_test_unique_ptr_values phtree_multimap_d_test_unique_ptr_values.cc)
 
     package_add_test(phtree_multimap_box_d_test phtree_multimap_box_d_test.cc)
+
+    package_add_test(converter_test converter_test.cc)
+    package_add_test(distance_test distance_test.cc)
+    package_add_test(filter_test filter_test.cc)
 
     add_subdirectory(common)
 endif ()

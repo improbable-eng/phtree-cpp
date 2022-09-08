@@ -8,8 +8,8 @@ cc_test(
     ],
     linkstatic = True,
     deps = [
-        "//phtree/common",
-        "//test/testing/gtest_main",
+        "//:phtree",
+        "@gtest//:gtest_main",
     ],
 )
 
@@ -21,8 +21,8 @@ cc_test(
     ],
     linkstatic = True,
     deps = [
-        "//phtree/common",
-        "//test/testing/gtest_main",
+        "//:phtree",
+        "@gtest//:gtest_main",
     ],
 )
 
@@ -34,34 +34,8 @@ cc_test(
     ],
     linkstatic = True,
     deps = [
-        "//phtree/common",
-        "//test/testing/gtest_main",
-    ],
-)
-
-cc_test(
-    name = "distance_test",
-    timeout = "long",
-    srcs = [
-        "distance_test.cc",
-    ],
-    linkstatic = True,
-    deps = [
-        "//phtree/common",
-        "//test/testing/gtest_main",
-    ],
-)
-
-cc_test(
-    name = "filter_test",
-    timeout = "long",
-    srcs = [
-        "filter_test.cc",
-    ],
-    linkstatic = True,
-    deps = [
-        "//phtree/common",
-        "//test/testing/gtest_main",
+        "//:phtree",
+        "@gtest//:gtest_main",
     ],
 )
 
@@ -73,8 +47,8 @@ cc_test(
     ],
     linkstatic = True,
     deps = [
-        "//phtree/common",
-        "//test/testing/gtest_main",
+        "//:phtree",
+        "@gtest//:gtest_main",
     ],
 )
 
@@ -86,8 +60,8 @@ cc_test(
     ],
     linkstatic = True,
     deps = [
-        "//phtree/common",
-        "//test/testing/gtest_main",
+        "//:phtree",
+        "@gtest//:gtest_main",
     ],
 )
 
@@ -99,8 +73,8 @@ cc_test(
     ],
     linkstatic = True,
     deps = [
-        "//phtree/common",
-        "//test/testing/gtest_main",
+        "//:phtree",
+        "@gtest//:gtest_main",
     ],
 )
 
@@ -112,20 +86,7 @@ cc_test(
     ],
     linkstatic = True,
     deps = [
-        "//phtree/common",
-        "//test/testing/gtest_main",
-    ],
-)
-
-cc_test(
-    name = "preprocessor_test",
-    timeout = "long",
-    srcs = [
-        "converter_test.cc",
-    ],
-    linkstatic = True,
-    deps = [
-        "//phtree/common",
-        "//test/testing/gtest_main",
+        "//:phtree",
+        "@gtest//:gtest_main",
     ],
 )
