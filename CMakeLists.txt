@@ -34,6 +34,9 @@ endif ()
 # bench options
 option(PHTREE_BUILD_BENCHMARKS "Build benchmarks (Requires https://github.com/google/benchmark.git to be installed)" OFF)
 
+# install options
+option(PHTREE_INSTALL "Generate the install target" OFF)
+
 
 # ---------------------------------------------------------------------------------------
 # Compiler config
@@ -82,7 +85,7 @@ else ()
     endif ()
     if (PHTREE_CODE_COVERAGE)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage") # -Wa,-mbig-obj")
-        set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} --coverage")
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --coverage")
     endif ()
 endif ()
 
@@ -98,8 +101,8 @@ add_library(phtree::phtree ALIAS phtree)
 target_compile_features(phtree INTERFACE cxx_std_17)
 
 target_include_directories(phtree INTERFACE
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 
 if (PHTREE_BUILD_EXAMPLES OR PHTREE_BUILD_ALL)
     message(STATUS "Generating examples")
@@ -116,4 +119,43 @@ if (PHTREE_BUILD_TESTS OR PHTREE_BUILD_ALL)
     enable_testing()
     include(GoogleTest)
     add_subdirectory(test)
+endif ()
+
+# ---------------------------------------------------------------------------------------
+# Install
+# ---------------------------------------------------------------------------------------
+if (PHTREE_INSTALL)
+    include(GNUInstallDirs)
+
+    install(TARGETS phtree
+            EXPORT ${PROJECT_NAME}_Targets
+            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+    include(CMakePackageConfigHelpers)
+    write_basic_package_version_file("phtreeConfigVersion.cmake"
+            VERSION ${PROJECT_VERSION}
+            COMPATIBILITY SameMajorVersion)
+
+    configure_package_config_file(
+            "${PROJECT_SOURCE_DIR}/cmake/${PROJECT_NAME}Config.cmake.in"
+            "${PROJECT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+            INSTALL_DESTINATION
+            ${CMAKE_INSTALL_DATAROOTDIR}/${PROJECT_NAME}/cmake)
+
+    install(EXPORT ${PROJECT_NAME}_Targets
+            FILE ${PROJECT_NAME}Targets.cmake
+            NAMESPACE phtree::
+            DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/${PROJECT_NAME}/cmake)
+
+    install(FILES "${PROJECT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+            "${PROJECT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
+            DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/${PROJECT_NAME}/cmake)
+
+    install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/phtree
+            DESTINATION include
+            PATTERN "BUILD" EXCLUDE
+            PATTERN "*.md" EXCLUDE)
+
 endif ()
