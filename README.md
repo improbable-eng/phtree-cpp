@@ -594,7 +594,11 @@ bazel run //benchmark:update_mm_d_benchmark --config=benchmark  -- --benchmark_c
 <a id="cmake"></a>
 
 ### cmake
-<!--With `FetchContent_...()`: ***NOTE This will only work once v1.4.0 has been released!***
+<!--
+The library supports three types of cmake dependency management, `FetchContent`, `find_package()` and `add_subfolder()`.
+All three approaches are used in [this example project](https://github.com/tzaeschke/test-phtree-cpp-cmake).
+#### FetchContent
+With `FetchContent_...()`: ***NOTE This will only work once v1.4.0 has been released!***
 ```
 include(FetchContent)
 FetchContent_Declare(
@@ -605,6 +609,25 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(phtree)
 ```
+
+#### find_package()
+You need to build the library with:
+```
+mkdir out && cd out
+cmake .. -DPHTREE_INSTALL=on
+sudo cmake --build . --config Release --target install -- -j <number of cores>
+```
+Note that the option `CMAKE_INSTALL_PREFIX:PATH=...` does _not_ work.
+The library can then be included with:
+```
+find_package(phtree CONFIG REQUIRED)
+add_executable(ExampleProject example.cc)
+target_link_libraries(ExampleProject phtree::phtree)
+```
+
+#### add_subfolder()
+For this you can simply copy the PH-Tree source code into your project (you can skip `benchmark` and `test`) and
+then include the folder with `add_subdirectory(phtree-cpp)`.
 -->
 
 `cmake` uses `ccache` when available.

@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   - linting for C++ and bazel files.
   - Added CI status badges.
   - Added test coverage
+- Added support for cmake `FetchContent`.
+  See README for details. [#75](https://github.com/tzaeschke/phtree-cpp/issues/75)
+- Added support for cmake `find_packet()` and direct import via `add_sub_directory()`.
+  See README for details. [#83](https://github.com/tzaeschke/phtree-cpp/issues/83)
 
 ### Changed
 - Cleaned up build scripts. [#53](https://github.com/tzaeschke/phtree-cpp/issues/53)
