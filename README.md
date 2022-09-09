@@ -595,14 +595,13 @@ bazel run //benchmark:update_mm_d_benchmark --config=benchmark  -- --benchmark_c
 The library supports three types of cmake dependency management, `FetchContent`, `find_package()` and `add_subfolder()`.
 All three approaches are used in [this example project](https://github.com/tzaeschke/test-phtree-cpp-cmake).
 #### FetchContent
-With `FetchContent_...()`: ***NOTE This will only work once v1.4.0 has been released!***
+With `FetchContent_...()`:
 ```
 include(FetchContent)
 FetchContent_Declare(
         phtree
         GIT_REPOSITORY https://github.com/tzaeschke/phtree-cpp.git
-        #GIT_TAG v1.4.0
-        GIT_TAG 9e81dd52560b346895379586d03ff4c51508d9d4
+        GIT_TAG v1.4.0
 )
 FetchContent_MakeAvailable(phtree)
 ```
