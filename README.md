@@ -149,7 +149,7 @@ struct Counter {
     size_t n_ = 0;
 };
 
-// Count entries inside of an axis aligned box defined by the two points (1,1,1) and (3,3,3)
+// Count entries inside an axis aligned box defined by the two points (1,1,1) and (3,3,3)
 Counter callback;
 tree.for_each({{1, 1, 1}, {3, 3, 3}}, callback);
 // callback.n_ is now the number of entries in the box.
@@ -200,7 +200,7 @@ struct FilterByValueId {
     }
 };
 
-// Iterate over all entries inside of an axis aligned box defined by the two points (1,1,1) and (3,3,3).
+// Iterate over all entries inside an axis aligned box defined by the two points (1,1,1) and (3,3,3).
 // Return only entries that suffice the filter condition.    
 for (auto it = tree.begin_query({1, 1, 1}, {3, 3, 3}, FilterByValueId<3, T>())); it != tree.end(); ++it) {
     ...
@@ -227,7 +227,7 @@ template <dimension_t DIM, typename T>
 struct FilterMultiMapByValueId {
     template <typename BucketT>
     [[nodiscard]] constexpr bool IsEntryValid(const PhPoint<DIM>& key, const BucketT& bucket) const {
-        // Arbitrary example: Only allow keys/buckets with a certain property, eg. keys that lie within a given sphere.
+        // Arbitrary example: Only allow keys/buckets with a certain property, e.g. keys that lie within a given sphere.
         return check_some_geometric_propert_of_key(key);
     }
     [[nodiscard]] constexpr bool IsBucketEntryValid(const PhPoint<DIM>& key, const T& value) const {
@@ -436,7 +436,7 @@ heavily on the actual dataset, usage patterns, hardware, ... .
 **Generally, the PH-Tree tends to have the following advantages:**
 
 * Fast insertion/removal times. While some indexes, such as *k*-D-trees, trees can be build from scratch very fast, they
-  tend to be be much slower when removing entries or when indexing large datasets. Also, most indexes require
+  tend to be much slower when removing entries or when indexing large datasets. Also, most indexes require
   rebalancing which may result in unpredictable latency (R-trees) or may result in index degradation if delayed
   (*k*D-trees).
 
@@ -555,7 +555,6 @@ The PH-tree makes use of vectorization, so suggested compilation options for cla
 <a id="bazel"></a>
 
 ### Bazel
-<!--
 `WORKSPACE` file:
 ```
 http_archive(
@@ -573,7 +572,6 @@ cc_binary(
     ],
 )
 ```
--->
 
 Once you have set up your dependencies, you should be able to build the PH-Tree repository by running:
 ```
@@ -593,19 +591,17 @@ bazel run //benchmark:update_mm_d_benchmark --config=benchmark  -- --benchmark_c
 
 <a id="cmake"></a>
 
-### cmake
-<!--
+### cmake dependency
 The library supports three types of cmake dependency management, `FetchContent`, `find_package()` and `add_subfolder()`.
 All three approaches are used in [this example project](https://github.com/tzaeschke/test-phtree-cpp-cmake).
 #### FetchContent
-With `FetchContent_...()`: ***NOTE This will only work once v1.4.0 has been released!***
+With `FetchContent_...()`:
 ```
 include(FetchContent)
 FetchContent_Declare(
         phtree
         GIT_REPOSITORY https://github.com/tzaeschke/phtree-cpp.git
-        #GIT_TAG v1.3.0
-        GIT_TAG 9e81dd52560b346895379586d03ff4c51508d9d4
+        GIT_TAG v1.4.0
 )
 FetchContent_MakeAvailable(phtree)
 ```
@@ -628,8 +624,9 @@ target_link_libraries(ExampleProject phtree::phtree)
 #### add_subfolder()
 For this you can simply copy the PH-Tree source code into your project (you can skip `benchmark` and `test`) and
 then include the folder with `add_subdirectory(phtree-cpp)`.
--->
 
+
+### cmake build
 `cmake` uses `ccache` when available.
 ```
 mkdir build

@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 ### Added
+
+## [1.4.0]
+### Added
 - Added build features: [#53](https://github.com/tzaeschke/phtree-cpp/issues/53) 
   - linting for C++ and bazel files.
   - Added CI status badges.
@@ -160,7 +163,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Nothing.
 
 
-[Unreleased]: https://github.com/improbable-eng/phtree-cpp/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/improbable-eng/phtree-cpp/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/improbable-eng/phtree-cpp/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/improbable-eng/phtree-cpp/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/improbable-eng/phtree-cpp/compare/v1.1.0...v1.2.0
 [1.1.1]: https://github.com/improbable-eng/phtree-cpp/compare/v1.1.0...v1.1.1
