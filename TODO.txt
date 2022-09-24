@@ -1,3 +1,15 @@
+Ideas that didn't work
+======================
+#39  Store nodes flat in Entries.
+     Some improvement (5-10%), but it doesn work for flat_array_map, because that
+     is already a "flat" std::array and would cause the whole tree to materialize during compilation time.
+     Lesson: Try to mak flat_sparse_map "flat" -> see #86
+#88  Using PQ for upper part of WQ. This had absolutely no effect (testing with query_mm_d_benchmark with 100K-10M).
+     Counting showed that PQ would go 3-5 nodes deep (100K:3, 10M: 5) but that had no effect.
+     Lesson: Look at WQ initialization, it may be too expensive. Why is WQ traversal so slow???
+
+
+
 Fix const-ness
 ==============
 - operator[] should have a const overload
