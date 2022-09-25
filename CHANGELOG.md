@@ -5,7 +5,100 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-Nothing yet.
+### Added
+
+## [1.4.0]
+### Added
+- Added build features: [#53](https://github.com/tzaeschke/phtree-cpp/issues/53) 
+  - linting for C++ and bazel files.
+  - Added CI status badges.
+  - Added test coverage
+- Added support for cmake `FetchContent`.
+  See README for details. [#75](https://github.com/tzaeschke/phtree-cpp/issues/75)
+- Added support for cmake `find_packet()` and direct import via `add_sub_directory()`.
+  See README for details. [#83](https://github.com/tzaeschke/phtree-cpp/issues/83)
+
+### Changed
+- Cleaned up build scripts. [#53](https://github.com/tzaeschke/phtree-cpp/issues/53)
+- Fixed code coverage + migrate to linux. [#80](https://github.com/tzaeschke/phtree-cpp/issues/80)
+- ***BREAKING CHANGE*** The project has been restructured to have a more "standard" directory structure.
+  This affects how **bazel** dependencies work (use `deps = ["@phtree//:phtree",]`) and enables **cmake FetchContent_**.
+  See README for details. [#75](https://github.com/tzaeschke/phtree-cpp/issues/75)
+
+### Removed
+- Nothing.
+
+### Fixed
+- Nothing.
+
+## [1.3.0] - 2022-08-28
+### Added
+- Added flag to relocate() allow short cutting in case of identical keys.
+  [#68](https://github.com/tzaeschke/phtree-cpp/issues/68)
+- Added tested support for move-only and copy-only value objects.
+  [#56](https://github.com/tzaeschke/phtree-cpp/issues/56)
+- Added custom bucket implementation (similar to std::unordered_set). This improves update performance by 5%-20%.
+  [#44](https://github.com/tzaeschke/phtree-cpp/issues/44)
+- Added `PhTree.relocate(old_key, new_key)` and `PhTree.relocate_if(old_key, new_key, predicate)`. 
+  This is **a lot faster** than using other methods. 
+  [#43](https://github.com/tzaeschke/phtree-cpp/issues/43)
+- Added try_emplace(key, value) and try_emplace(iter_hint, key, value)
+  [#40](https://github.com/tzaeschke/phtree-cpp/issues/40)
+- Added FilterBoxAABB and FilterSphereAABB as examples for filtering a PH-Tree with box keys
+  [#33](https://github.com/tzaeschke/phtree-cpp/issues/33)
+### Changed
+- Moved tests and benchmarks into separate folders. [#67](https://github.com/tzaeschke/phtree-cpp/pull/67)
+- Cleaned up unit tests. [#54](https://github.com/tzaeschke/phtree-cpp/pull/54)
+- Simplified internals of `erase()`. [#47](https://github.com/tzaeschke/phtree-cpp/pull/47)
+- Removed internal use of `std::optional()` to slightly reduce memory overhead
+  [#38](https://github.com/tzaeschke/phtree-cpp/issues/38)
+- Removed restrictions on bazel version [#35](https://github.com/tzaeschke/phtree-cpp/issues/35)
+- **API BREAKING CHANGE**: API of filters have been changed to be more correct, explicit and flexible.
+  [#21](https://github.com/tzaeschke/phtree-cpp/issues/21)
+  - Correctness: Converters and distance functions are not copied unnecessarily anymore.
+  - Explicit: 
+    Filters *must* have a mandatory parameter for a converter reference. This ensures that the correct
+            converter is used, probably `tree.converter()`.
+  - Flexible: 
+    Distance functions can be provided through a universal reference (forwarding reference).
+    Also, filters are now movable and copyable. 
+  
+- **API BREAKING CHANGE**: Allow filtering on buckets in multimaps. Multimap filters have different functions
+  and function signatures than normal `PhTree` filters. [#26](https://github.com/tzaeschke/phtree-cpp/issues/26)
+
+### Fixed
+- Fixed compiler warnings when compiling with Visual Studio 2019.
+  [#74](https://github.com/tzaeschke/phtree-cpp/issues/74)
+- Fixed cmake to work with Visual Studio 2019. Added tests and benchmarks to cmake.
+  (benchmarks still do not work with VS at the moment).
+  [#62](https://github.com/tzaeschke/phtree-cpp/issues/62)
+- Fixed compilation problems and a memory leak when compiling with Visual Studio 2019.
+  (also added `msan` support). [#64](https://github.com/tzaeschke/phtree-cpp/pull/64)
+
+## [1.2.0] - 2022-04-14
+### Changed
+- Bugfix: FilterSphere was not working correctly. [#27](https://github.com/tzaeschke/phtree-cpp/issues/27)
+- Potentially **BREAKING CHANGE**: Refactored API of all methods that accept callbacks and filters to
+  accept universal/forwarding references.
+  Also changed filters and callback to not require `const` methods. 
+  [#22](https://github.com/tzaeschke/phtree-cpp/issues/22)
+- Clean up iterator implementations. [#19](https://github.com/tzaeschke/phtree-cpp/issues/19)
+- Make PhTree and PhTreeMultimap movable (move-assign/copy). [#18](https://github.com/tzaeschke/phtree-cpp/issues/18)
+- Potentially **BREAKING CHANGE** when using `IsNodeValid()` in provided filters:
+  Changed `bit_width_t` from `uin16_t` to `uint32_t`. This improves performance of 3D insert/emplace
+  on small datasets by up to 15%. To avoid warnings that meant that the API of `FilterAABB` and `FilterSphere` 
+  had to be changed to accept `uint32_t` instead of `int`. This may break some implementations.
+  [#17](https://github.com/tzaeschke/phtree-cpp/pull/17)
+- DIM>8 now uses custom b_plus_tree_map instead of std::map. This improves performance for all operations, e.g.
+  window queries on large datasets are up to 4x faster. Benchmarks results can be found in the issue. 
+  [#14](https://github.com/tzaeschke/phtree-cpp/issues/14)
+- postfix/infix field moved from Node to Entry. This avoids indirections and improves performance of most by ~10%.
+  operations by 5-15%.  [#11](https://github.com/tzaeschke/phtree-cpp/issues/11)
+- Entries now use 'union' to store children.  [#9](https://github.com/tzaeschke/phtree-cpp/issues/9)
+- Avoid unnecessary find() when removing a node. [#5](https://github.com/tzaeschke/phtree-cpp/issues/5)
+- Avoid unnecessary key copy when inserting a node. [#4](https://github.com/tzaeschke/phtree-cpp/issues/4)
+- for_each(callback, filter) was traversing too many nodes. [#2](https://github.com/tzaeschke/phtree-cpp/issues/2)
+- Build improvements for bazel/cmake
 
 ## [1.1.1] - 2022-01-30
 ### Changed
@@ -70,7 +163,10 @@ Nothing yet.
 - Nothing.
 
 
-[Unreleased]: https://github.com/improbable-eng/phtree-cpp/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/improbable-eng/phtree-cpp/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/improbable-eng/phtree-cpp/compare/v1.3.0...v1.4.0
+[1.3.0]: https://github.com/improbable-eng/phtree-cpp/compare/v1.2.0...v1.3.0
+[1.2.0]: https://github.com/improbable-eng/phtree-cpp/compare/v1.1.0...v1.2.0
 [1.1.1]: https://github.com/improbable-eng/phtree-cpp/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/improbable-eng/phtree-cpp/compare/v1.0.0...v1.1.0
 [1.0.1]: https://github.com/improbable-eng/phtree-cpp/compare/v1.0.0...v1.0.1
