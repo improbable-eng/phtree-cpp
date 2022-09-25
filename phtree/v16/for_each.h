@@ -18,7 +18,7 @@
 #define PHTREE_V16_FOR_EACH_H
 
 #include "../common/common.h"
-#include "iterator_simple.h"
+#include "iterator_with_parent.h"
 
 namespace improbable::phtree::v16 {
 
@@ -26,47 +26,43 @@ namespace improbable::phtree::v16 {
  * Iterates over the whole tree. Entries and child nodes that are rejected by the Filter are not
  * traversed or returned.
  */
-template <typename T, typename CONVERT, typename CALLBACK_FN, typename FILTER>
+template <typename T, typename CONVERT, typename CALLBACK, typename FILTER>
 class ForEach {
     static constexpr dimension_t DIM = CONVERT::DimInternal;
-    using KeyExternal = typename CONVERT::KeyExternal;
     using KeyInternal = typename CONVERT::KeyInternal;
     using SCALAR = typename CONVERT::ScalarInternal;
     using EntryT = Entry<DIM, T, SCALAR>;
-    using NodeT = Node<DIM, T, SCALAR>;
 
   public:
-    ForEach(const CONVERT& converter, CALLBACK_FN& callback, FILTER filter)
-    : converter_{converter}, callback_{callback}, filter_(std::move(filter)) {}
+    template <typename CB, typename F>
+    ForEach(const CONVERT* converter, CB&& callback, F&& filter)
+    : converter_{converter}
+    , callback_{std::forward<CB>(callback)}
+    , filter_(std::forward<F>(filter)) {}
 
-    void run(const EntryT& root) {
-        assert(root.IsNode());
-        TraverseNode(root.GetKey(), root.GetNode());
-    }
-
-  private:
-    void TraverseNode(const KeyInternal& key, const NodeT& node) {
-        auto iter = node.Entries().begin();
-        auto end = node.Entries().end();
+    void Traverse(const EntryT& entry) {
+        assert(entry.IsNode());
+        auto& entries = entry.GetNode().Entries();
+        auto iter = entries.begin();
+        auto end = entries.end();
         for (; iter != end; ++iter) {
             const auto& child = iter->second;
             const auto& child_key = child.GetKey();
             if (child.IsNode()) {
-                const auto& child_node = child.GetNode();
-                if (filter_.IsNodeValid(key, node.GetPostfixLen() + 1)) {
-                    TraverseNode(child_key, child_node);
+                if (filter_.IsNodeValid(child_key, child.GetNodePostfixLen() + 1)) {
+                    Traverse(child);
                 }
             } else {
                 T& value = child.GetValue();
-                if (filter_.IsEntryValid(key, value)) {
-                    callback_(converter_.post(child_key), value);
+                if (filter_.IsEntryValid(child_key, value)) {
+                    callback_(converter_->post(child_key), value);
                 }
             }
         }
     }
 
-    CONVERT converter_;
-    CALLBACK_FN& callback_;
+    const CONVERT* converter_;
+    CALLBACK callback_;
     FILTER filter_;
 };
 }  // namespace improbable::phtree::v16

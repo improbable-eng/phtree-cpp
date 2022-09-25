@@ -4,9 +4,13 @@
 !.clang-format
 !.gitignore
 !.github
+!*.yml
 bazel-*
 !bazel-*.sh
 compile_commands.json
 perf.data*
 build
+out
+CMakeSettings.json
 
+/cmake-build-debug/

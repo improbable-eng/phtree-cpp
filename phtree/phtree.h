@@ -32,8 +32,6 @@ namespace improbable::phtree {
 template <dimension_t DIM, typename T, typename CONVERTER = ConverterNoOp<DIM, scalar_64_t>>
 class PhTree {
     friend PhTreeDebugHelper;
-    using KeyInternal = typename CONVERTER::KeyInternal;
-    using QueryBox = typename CONVERTER::QueryBoxExternal;
     using Key = typename CONVERTER::KeyExternal;
     static constexpr dimension_t DimInternal = CONVERTER::DimInternal;
 
@@ -42,7 +40,17 @@ class PhTree {
         typename std::conditional<(DIM == DimInternal), QueryPoint, QueryIntersect>::type;
 
   public:
-    explicit PhTree(CONVERTER converter = CONVERTER()) : tree_{converter}, converter_{converter} {}
+    // Unless specified otherwise this is just PhBox<DIM, SCALAR_EXTERNAL>
+    using QueryBox = typename CONVERTER::QueryBoxExternal;
+
+    template <typename CONV = CONVERTER>
+    explicit PhTree(CONV&& converter = CONV()) : tree_{&converter_}, converter_{converter} {}
+
+    PhTree(const PhTree& other) = delete;
+    PhTree& operator=(const PhTree& other) = delete;
+    PhTree(PhTree&& other) noexcept = default;
+    PhTree& operator=(PhTree&& other) noexcept = default;
+    ~PhTree() noexcept = default;
 
     /*
      *  Attempts to build and insert a key and a value into the tree.
@@ -60,7 +68,7 @@ class PhTree {
      */
     template <typename... Args>
     std::pair<T&, bool> emplace(const Key& key, Args&&... args) {
-        return tree_.emplace(converter_.pre(key), std::forward<Args>(args)...);
+        return tree_.try_emplace(converter_.pre(key), std::forward<Args>(args)...);
     }
 
     /*
@@ -80,7 +88,7 @@ class PhTree {
      */
     template <typename ITERATOR, typename... Args>
     std::pair<T&, bool> emplace_hint(const ITERATOR& iterator, const Key& key, Args&&... args) {
-        return tree_.emplace_hint(iterator, converter_.pre(key), std::forward<Args>(args)...);
+        return tree_.try_emplace(iterator, converter_.pre(key), std::forward<Args>(args)...);
     }
 
     /*
@@ -91,6 +99,22 @@ class PhTree {
      */
     std::pair<T&, bool> insert(const Key& key, const T& value) {
         return tree_.insert(converter_.pre(key), value);
+    }
+
+    /*
+     * See emplace().
+     */
+    template <typename... Args>
+    std::pair<T&, bool> try_emplace(const Key& key, Args&&... args) {
+        return tree_.try_emplace(converter_.pre(key), std::forward<Args>(args)...);
+    }
+
+    /*
+     * See emplace_hint().
+     */
+    template <typename ITERATOR, typename... Args>
+    std::pair<T&, bool> try_emplace(const ITERATOR& iterator, const Key& key, Args&&... args) {
+        return tree_.try_emplace(iterator, converter_.pre(key), std::forward<Args>(args)...);
     }
 
     /*
@@ -148,6 +172,44 @@ class PhTree {
     }
 
     /*
+     * This function attempts to remove a 'value' from 'old_key' and reinsert it for 'new_key'.
+     *
+     * The function will report _success_ in the following cases:
+     * - the value was removed from the old position and reinserted at the new position
+     * - the position and new position refer to the same bucket.
+     *
+     * The function will report _failure_ in the following cases:
+     * - The value was already present in the new position
+     * - The value was not present in the old position
+     *
+     * This method will _not_ remove the value from the old position if it is already present at the
+     * new position.
+     *
+     * @param old_key The old position
+     * @param new_key The new position
+     * @return '1' if the 'value' was moved, otherwise '0'.
+     */
+    auto relocate(const Key& old_key, const Key& new_key) {
+        return tree_.relocate_if(
+            converter_.pre(old_key), converter_.pre(new_key), [](const T&) { return true; });
+    }
+
+    /*
+     * Relocate (move) an entry from one position to another, subject to a predicate.
+     *
+     * @param old_key The old position
+     * @param new_key The new position
+     * @param predicate The predicate is called for every value before it is relocated.
+     *                  If the predicate returns 'false', the relocation is aborted.
+     * @return '1' if the 'value' was moved, otherwise '0'.
+     */
+    template <typename PRED>
+    auto relocate_if(const Key& old_key, const Key& new_key, PRED&& predicate) {
+        return tree_.relocate_if(
+            converter_.pre(old_key), converter_.pre(new_key), std::forward<PRED>(predicate));
+    }
+
+    /*
      * Iterates over all entries in the tree. The optional filter allows filtering entries and nodes
      * (=sub-trees) before returning / traversing them. By default all entries are returned. Filter
      * functions must implement the same signature as the default 'FilterNoOp'.
@@ -158,9 +220,9 @@ class PhTree {
      * sub-nodes before they are returned or traversed. Any filter function must follow the
      * signature of the default 'FilterNoOp`.
      */
-    template <typename CALLBACK_FN, typename FILTER = FilterNoOp>
-    void for_each(CALLBACK_FN& callback, FILTER filter = FILTER()) const {
-        tree_.for_each(callback, filter);
+    template <typename CALLBACK, typename FILTER = FilterNoOp>
+    void for_each(CALLBACK&& callback, FILTER&& filter = FILTER()) const {
+        tree_.for_each(std::forward<CALLBACK>(callback), std::forward<FILTER>(filter));
     }
 
     /*
@@ -175,15 +237,18 @@ class PhTree {
      * signature of the default 'FilterNoOp`.
      */
     template <
-        typename CALLBACK_FN,
+        typename CALLBACK,
         typename FILTER = FilterNoOp,
         typename QUERY_TYPE = DEFAULT_QUERY_TYPE>
     void for_each(
         QueryBox query_box,
-        CALLBACK_FN& callback,
-        FILTER filter = FILTER(),
+        CALLBACK&& callback,
+        FILTER&& filter = FILTER(),
         QUERY_TYPE query_type = QUERY_TYPE()) const {
-        tree_.for_each(query_type(converter_.pre_query(query_box)), callback, filter);
+        tree_.for_each(
+            query_type(converter_.pre_query(query_box)),
+            std::forward<CALLBACK>(callback),
+            std::forward<FILTER>(filter));
     }
 
     /*
@@ -194,8 +259,8 @@ class PhTree {
      * @return an iterator over all (filtered) entries in the tree,
      */
     template <typename FILTER = FilterNoOp>
-    auto begin(FILTER filter = FILTER()) const {
-        return tree_.begin(filter);
+    auto begin(FILTER&& filter = FILTER()) const {
+        return tree_.begin(std::forward<FILTER>(filter));
     }
 
     /*
@@ -211,9 +276,10 @@ class PhTree {
     template <typename FILTER = FilterNoOp, typename QUERY_TYPE = DEFAULT_QUERY_TYPE>
     auto begin_query(
         const QueryBox& query_box,
-        FILTER filter = FILTER(),
+        FILTER&& filter = FILTER(),
         QUERY_TYPE query_type = DEFAULT_QUERY_TYPE()) const {
-        return tree_.begin_query(query_type(converter_.pre_query(query_box)), filter);
+        return tree_.begin_query(
+            query_type(converter_.pre_query(query_box)), std::forward<FILTER>(filter));
     }
 
     /*
@@ -238,18 +304,21 @@ class PhTree {
     auto begin_knn_query(
         size_t min_results,
         const Key& center,
-        DISTANCE distance_function = DISTANCE(),
-        FILTER filter = FILTER()) const {
+        DISTANCE&& distance_function = DISTANCE(),
+        FILTER&& filter = FILTER()) const {
         // We use pre() instead of pre_query() here because, strictly speaking, we want to
         // find the nearest neighbors of a (fictional) key, which may as well be a box.
         return tree_.begin_knn_query(
-            min_results, converter_.pre(center), distance_function, filter);
+            min_results,
+            converter_.pre(center),
+            std::forward<DISTANCE>(distance_function),
+            std::forward<FILTER>(filter));
     }
 
     /*
      * @return An iterator representing the tree's 'end'.
      */
-    const auto& end() const {
+    auto end() const {
         return tree_.end();
     }
 
@@ -285,6 +354,14 @@ class PhTree {
     // This is used by PhTreeDebugHelper
     const auto& GetInternalTree() const {
         return tree_;
+    }
+
+    void CheckConsistencyExternal() const {
+        [[maybe_unused]] size_t n = 0;
+        for ([[maybe_unused]] const auto& entry : tree_) {
+            ++n;
+        }
+        assert(n == size());
     }
 
     v16::PhTreeV16<DimInternal, T, CONVERTER> tree_;

@@ -32,7 +32,7 @@ namespace improbable::phtree {
 
 namespace {
 template <typename T>
-using PhFlatMapPair = std::pair<size_t, T>;
+using PhSparseMapPair = std::pair<size_t, T>;
 
 using index_t = std::int32_t;
 }  // namespace
@@ -46,7 +46,9 @@ using index_t = std::int32_t;
 template <typename T>
 class sparse_map {
   public:
-    explicit sparse_map() : data_{} {};
+    explicit sparse_map() : data_{} {
+        data_.reserve(4);
+    }
 
     [[nodiscard]] auto find(size_t key) {
         auto it = lower_bound(key);
@@ -66,14 +68,14 @@ class sparse_map {
 
     [[nodiscard]] auto lower_bound(size_t key) {
         return std::lower_bound(
-            data_.begin(), data_.end(), key, [](PhFlatMapPair<T>& left, const size_t key) {
+            data_.begin(), data_.end(), key, [](PhSparseMapPair<T>& left, const size_t key) {
                 return left.first < key;
             });
     }
 
     [[nodiscard]] auto lower_bound(size_t key) const {
         return std::lower_bound(
-            data_.cbegin(), data_.cend(), key, [](const PhFlatMapPair<T>& left, const size_t key) {
+            data_.cbegin(), data_.cend(), key, [](const PhSparseMapPair<T>& left, const size_t key) {
                 return left.first < key;
             });
     }
@@ -115,7 +117,7 @@ class sparse_map {
         }
     }
 
-    void erase(const typename std::vector<PhFlatMapPair<T>>::iterator& iterator) {
+    void erase(const typename std::vector<PhSparseMapPair<T>>::iterator& iterator) {
         data_.erase(iterator);
     }
 
@@ -149,7 +151,7 @@ class sparse_map {
         }
     }
 
-    std::vector<PhFlatMapPair<T>> data_;
+    std::vector<PhSparseMapPair<T>> data_;
 };
 
 }  // namespace improbable::phtree

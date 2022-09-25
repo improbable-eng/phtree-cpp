@@ -23,7 +23,7 @@
 #include "iterator_full.h"
 #include "iterator_hc.h"
 #include "iterator_knn_hs.h"
-#include "iterator_simple.h"
+#include "iterator_with_parent.h"
 #include "node.h"
 
 namespace improbable::phtree::v16 {
@@ -57,8 +57,8 @@ class PhTreeV16 {
     using ScalarExternal = typename CONVERT::ScalarExternal;
     using ScalarInternal = typename CONVERT::ScalarInternal;
     using KeyT = typename CONVERT::KeyInternal;
-    using NodeT = Node<DIM, T, ScalarInternal>;
     using EntryT = Entry<DIM, T, ScalarInternal>;
+    using NodeT = Node<DIM, T, ScalarInternal>;
 
   public:
     static_assert(!std::is_reference<T>::value, "Reference type value are not supported.");
@@ -69,11 +69,16 @@ class PhTreeV16 {
         std::is_arithmetic<ScalarExternal>::value, "ScalarExternal must be an arithmetic type");
     static_assert(DIM >= 1 && DIM <= 63, "This PH-Tree supports between 1 and 63 dimensions");
 
-    PhTreeV16(CONVERT& converter = ConverterNoOp<DIM, ScalarInternal>())
+    explicit PhTreeV16(CONVERT* converter)
     : num_entries_{0}
-    , root_{0, MAX_BIT_WIDTH<ScalarInternal> - 1}
-    , the_end_{converter}
+    , root_{{}, std::make_unique<NodeT>(), MAX_BIT_WIDTH<ScalarInternal> - 1}
     , converter_{converter} {}
+
+    PhTreeV16(const PhTreeV16& other) = delete;
+    PhTreeV16& operator=(const PhTreeV16& other) = delete;
+    PhTreeV16(PhTreeV16&& other) noexcept = default;
+    PhTreeV16& operator=(PhTreeV16&& other) noexcept = default;
+    ~PhTreeV16() noexcept = default;
 
     /*
      *  Attempts to build and insert a key and a value into the tree.
@@ -90,19 +95,19 @@ class PhTreeV16 {
      * entry instead of inserting a new one.
      */
     template <typename... Args>
-    std::pair<T&, bool> emplace(const KeyT& key, Args&&... args) {
+    std::pair<T&, bool> try_emplace(const KeyT& key, Args&&... args) {
         auto* current_entry = &root_;
         bool is_inserted = false;
         while (current_entry->IsNode()) {
-            current_entry =
-                current_entry->GetNode().Emplace(is_inserted, key, std::forward<Args>(args)...);
+            current_entry = &current_entry->GetNode().Emplace(
+                is_inserted, key, current_entry->GetNodePostfixLen(), std::forward<Args>(args)...);
         }
         num_entries_ += is_inserted;
         return {current_entry->GetValue(), is_inserted};
     }
 
     /*
-     * The emplace_hint() method uses an iterator as hint for insertion.
+     * The try_emplace(hint, key, value) method uses an iterator as hint for insertion.
      * The hint is ignored if it is not useful or is equal to end().
      *
      * Iterators should normally not be used after the tree has been modified. As an exception to
@@ -114,41 +119,45 @@ class PhTreeV16 {
      * auto iter = tree.find(key1);
      * auto value = iter.second(); // The value may become invalid in erase()
      * erase(iter);
-     * emplace_hint(iter, key2, value);  // the iterator can still be used as hint here
+     * try_emplace(iter, key2, value);  // the iterator can still be used as hint here
      */
     template <typename ITERATOR, typename... Args>
-    std::pair<T&, bool> emplace_hint(const ITERATOR& iterator, const KeyT& key, Args&&... args) {
-        // This function can be used to insert a value close to a known value
-        // or close to a recently removed value. The hint can only be used if the new key is
-        // inside one of the nodes provided by the hint iterator.
-        // The idea behind using the 'parent' is twofold:
-        // - The 'parent' node is one level above the iterator position, it therefore is spatially
-        //   larger and has a better probability of containing the new position, allowing for
-        //   fast track emplace.
-        // - Using 'parent' allows a scenario where the iterator was previously used with
-        //   erase(iterator). This is safe because erase() will never erase the 'parent' node.
+    std::pair<T&, bool> try_emplace(const ITERATOR& iterator, const KeyT& key, Args&&... args) {
+        if constexpr (!std::is_same_v<ITERATOR, IteratorWithParent<T, CONVERT>>) {
+            return try_emplace(key, std::forward<Args>(args)...);
+        } else {
+            // This function can be used to insert a value close to a known value
+            // or close to a recently removed value. The hint can only be used if the new key is
+            // inside one of the nodes provided by the hint iterator.
+            // The idea behind using the 'parent' is twofold:
+            // - The 'parent' node is one level above the iterator position, it is spatially
+            //   larger and has a better probability of containing the new position, allowing for
+            //   fast track try_emplace.
+            // - Using 'parent' allows a scenario where the iterator was previously used with
+            //   erase(iterator). This is safe because erase() will never erase the 'parent' node.
 
-        if (!iterator.GetParentNodeEntry()) {
-            // No hint available, use standard emplace()
-            return emplace(key, std::forward<Args>(args)...);
-        }
+            if (!iterator.GetParentNodeEntry()) {
+                // No hint available, use standard try_emplace()
+                return try_emplace(key, std::forward<Args>(args)...);
+            }
 
-        auto* parent_entry = iterator.GetParentNodeEntry();
-        if (NumberOfDivergingBits(key, parent_entry->GetKey()) >
-            parent_entry->GetNode().GetPostfixLen() + 1) {
-            // replace higher up in the tree
-            return emplace(key, std::forward<Args>(args)...);
-        }
+            auto* parent_entry = iterator.GetParentNodeEntry();
+            if (NumberOfDivergingBits(key, parent_entry->GetKey()) >
+                parent_entry->GetNodePostfixLen() + 1) {
+                // replace higher up in the tree
+                return try_emplace(key, std::forward<Args>(args)...);
+            }
 
-        // replace in node
-        auto* current_entry = parent_entry;
-        bool is_inserted = false;
-        while (current_entry->IsNode()) {
-            current_entry =
-                current_entry->GetNode().Emplace(is_inserted, key, std::forward<Args>(args)...);
+            // replace in node
+            auto* entry = parent_entry;
+            bool is_inserted = false;
+            while (entry->IsNode()) {
+                entry = &entry->GetNode().Emplace(
+                    is_inserted, key, entry->GetNodePostfixLen(), std::forward<Args>(args)...);
+            }
+            num_entries_ += is_inserted;
+            return {entry->GetValue(), is_inserted};
         }
-        num_entries_ += is_inserted;
-        return {current_entry->GetValue(), is_inserted};
     }
 
     /*
@@ -158,7 +167,7 @@ class PhTreeV16 {
      * insertion) and a bool denoting whether the insertion took place.
      */
     std::pair<T&, bool> insert(const KeyT& key, const T& value) {
-        return emplace(key, value);
+        return try_emplace(key, value);
     }
 
     /*
@@ -166,7 +175,7 @@ class PhTreeV16 {
      * and returned.
      */
     T& operator[](const KeyT& key) {
-        return emplace(key).first;
+        return try_emplace(key).first;
     }
 
     /*
@@ -180,7 +189,7 @@ class PhTreeV16 {
         }
         auto* current_entry = &root_;
         while (current_entry && current_entry->IsNode()) {
-            current_entry = current_entry->GetNode().Find(key);
+            current_entry = current_entry->GetNode().Find(key, current_entry->GetNodePostfixLen());
         }
         return current_entry ? 1 : 0;
     }
@@ -194,20 +203,16 @@ class PhTreeV16 {
      * was found
      */
     auto find(const KeyT& key) const {
-        if (empty()) {
-            return IteratorSimple<T, CONVERT>(converter_);
-        }
-
         const EntryT* current_entry = &root_;
         const EntryT* current_node = nullptr;
         const EntryT* parent_node = nullptr;
         while (current_entry && current_entry->IsNode()) {
             parent_node = current_node;
             current_node = current_entry;
-            current_entry = current_entry->GetNode().Find(key);
+            current_entry = current_entry->GetNode().Find(key, current_entry->GetNodePostfixLen());
         }
 
-        return IteratorSimple<T, CONVERT>(current_entry, current_node, parent_node, converter_);
+        return IteratorWithParent<T, CONVERT>(current_entry, current_node, parent_node, converter_);
     }
 
     /*
@@ -216,13 +221,12 @@ class PhTreeV16 {
      * @return '1' if a value was found, otherwise '0'.
      */
     size_t erase(const KeyT& key) {
-        auto* current_node = &root_.GetNode();
-        NodeT* parent_node = nullptr;
+        auto* entry = &root_;
+        // We do not want the root entry to be modified. The reason is simply that a lot of the
+        // code in this class becomes simpler if we can assume the root entry to contain a node.
         bool found = false;
-        while (current_node) {
-            auto* child_node = current_node->Erase(key, parent_node, found);
-            parent_node = current_node;
-            current_node = child_node;
+        while (entry) {
+            entry = entry->GetNode().Erase(key, entry, entry != &root_, found);
         }
         num_entries_ -= found;
         return found;
@@ -230,8 +234,6 @@ class PhTreeV16 {
 
     /*
      * See std::map::erase(). Removes any value at the given iterator location.
-     *
-     *
      *
      * WARNING
      * While this is guaranteed to work correctly, only iterators returned from find()
@@ -242,30 +244,192 @@ class PhTreeV16 {
      */
     template <typename ITERATOR>
     size_t erase(const ITERATOR& iterator) {
-        if (iterator.Finished()) {
+        if (iterator.IsEnd()) {
             return 0;
         }
-        if (!iterator.GetParentNodeEntry()) {
-            // Why may there be no parent?
-            // - we are in the root node
-            // - the iterator did not set this value
-            // In either case, we need to start searching from the top.
-            return erase(iterator.GetCurrentResult()->GetKey());
+        if constexpr (std::is_same_v<ITERATOR, IteratorWithParent<T, CONVERT>>) {
+            const auto& iter_rich = static_cast<const IteratorWithParent<T, CONVERT>&>(iterator);
+            if (!iter_rich.GetNodeEntry() || iter_rich.GetNodeEntry() == &root_) {
+                // Do _not_ use the root entry, see erase(key). Start searching from the top.
+                return erase(iter_rich.GetEntry()->GetKey());
+            }
+            bool found = false;
+            EntryT* entry = iter_rich.GetNodeEntry();
+            // The loop is a safeguard for find_two_mm which may return slightly wrong iterators.
+            while (entry != nullptr) {
+                entry = entry->GetNode().Erase(iter_rich.GetEntry()->GetKey(), entry, true, found);
+            }
+            num_entries_ -= found;
+            return found;
+        }
+        // There may be no entry because not every iterator sets it.
+        return erase(iterator.GetEntry()->GetKey());
+    }
+
+    /*
+     * Relocate (move) an entry from one position to another, subject to a predicate.
+     *
+     * @param old_key
+     * @param new_key
+     * @param predicate
+     *
+     * @return  A pair, whose first element points to the possibly relocated value, and
+     *          whose second element is a bool that is true if the value was actually relocated.
+     */
+    template <typename PRED>
+    size_t relocate_if(const KeyT& old_key, const KeyT& new_key, PRED&& pred) {
+        auto pair = _find_two(old_key, new_key);
+        auto& iter_old = pair.first;
+        auto& iter_new = pair.second;
+
+        if (iter_old.IsEnd() || !pred(*iter_old)) {
+            return 0;
+        }
+        // Are we inserting in same node and same quadrant? Or are the keys equal?
+        if (iter_old == iter_new) {
+            iter_old.GetEntry()->SetKey(new_key);
+            return 1;
+        }
+
+        bool is_inserted = false;
+        auto* new_parent = iter_new.GetNodeEntry();
+        new_parent->GetNode().Emplace(
+            is_inserted, new_key, new_parent->GetNodePostfixLen(), std::move(*iter_old));
+        if (!is_inserted) {
+            return 0;
+        }
+
+        // Erase old value. See comments in try_emplace(iterator) for details.
+        EntryT* old_node_entry = iter_old.GetNodeEntry();
+        if (iter_old.GetParentNodeEntry() == iter_new.GetNodeEntry()) {
+            // In this case the old_node_entry may have been invalidated by the previous insertion.
+            old_node_entry = iter_old.GetParentNodeEntry();
         }
         bool found = false;
-        assert(iterator.GetCurrentNodeEntry() && iterator.GetCurrentNodeEntry()->IsNode());
-        iterator.GetCurrentNodeEntry()->GetNode().Erase(
-            iterator.GetCurrentResult()->GetKey(),
-            &iterator.GetParentNodeEntry()->GetNode(),
-            found);
+        while (old_node_entry) {
+            old_node_entry = old_node_entry->GetNode().Erase(
+                old_key, old_node_entry, old_node_entry != &root_, found);
+        }
+        assert(found);
+        return 1;
+    }
 
-        num_entries_ -= found;
-        return found;
+    /*
+     * Tries to locate two entries that are 'close' to each other.
+     *
+     * Special behavior:
+     * - returns end() if old_key does not exist;
+     */
+    auto _find_two(const KeyT& old_key, const KeyT& new_key) {
+        using Iter = IteratorWithParent<T, CONVERT>;
+        bit_width_t n_diverging_bits = NumberOfDivergingBits(old_key, new_key);
+
+        const EntryT* current_entry = &root_;           // An entry.
+        const EntryT* old_node_entry = nullptr;         // Node that contains entry to be removed
+        const EntryT* old_node_entry_parent = nullptr;  // Parent of the old_node_entry
+        const EntryT* new_node_entry = nullptr;         // Node that will contain  new entry
+        // Find node for removal
+        while (current_entry && current_entry->IsNode()) {
+            old_node_entry_parent = old_node_entry;
+            old_node_entry = current_entry;
+            auto postfix_len = old_node_entry->GetNodePostfixLen();
+            if (postfix_len + 1 >= n_diverging_bits) {
+                new_node_entry = old_node_entry;
+            }
+            current_entry = current_entry->GetNode().Find(old_key, postfix_len);
+        }
+        const EntryT* old_entry = current_entry;  // Entry to be removed
+
+        // Can we stop already?
+        if (old_entry == nullptr) {
+            auto iter = Iter(nullptr, nullptr, nullptr, converter_);
+            return std::make_pair(iter, iter);  // old_key not found!
+        }
+
+        // Are we inserting in same node and same quadrant? Or are the keys equal?
+        assert(old_node_entry != nullptr);
+        if (n_diverging_bits == 0 || old_node_entry->GetNodePostfixLen() >= n_diverging_bits) {
+            auto iter = Iter(old_entry, old_node_entry, old_node_entry_parent, converter_);
+            return std::make_pair(iter, iter);
+        }
+
+        // Find node for insertion
+        auto new_entry = new_node_entry;
+        while (new_entry && new_entry->IsNode()) {
+            new_node_entry = new_entry;
+            new_entry = new_entry->GetNode().Find(new_key, new_entry->GetNodePostfixLen());
+        }
+
+        auto iter1 = Iter(old_entry, old_node_entry, old_node_entry_parent, converter_);
+        auto iter2 = Iter(new_entry, new_node_entry, nullptr, converter_);
+        return std::make_pair(iter1, iter2);
+    }
+
+    /*
+     * Tries to locate two entries that are 'close' to each other.
+     *
+     * Special behavior:
+     * - returns end() if old_key does not exist;
+     * - CREATES the destination entry if it does not exist!
+     */
+    auto _find_or_create_two_mm(const KeyT& old_key, const KeyT& new_key, bool count_equals) {
+        using Iter = IteratorWithParent<T, CONVERT>;
+        bit_width_t n_diverging_bits = NumberOfDivergingBits(old_key, new_key);
+
+        if (!count_equals && n_diverging_bits == 0) {
+            auto iter = Iter(nullptr, nullptr, nullptr, converter_);
+            return std::make_pair(iter, iter);
+        }
+
+        const EntryT* new_entry = &root_;        // An entry.
+        const EntryT* old_node_entry = nullptr;  // Node that contains entry to be removed
+        const EntryT* new_node_entry = nullptr;  // Node that will contain  new entry
+        // Find the deepest common parent node for removal and insertion
+        bool is_inserted = false;
+        while (new_entry && new_entry->IsNode() &&
+               new_entry->GetNodePostfixLen() + 1 >= n_diverging_bits) {
+            new_node_entry = new_entry;
+            auto postfix_len = new_entry->GetNodePostfixLen();
+            new_entry = &new_entry->GetNode().Emplace(is_inserted, new_key, postfix_len);
+        }
+        old_node_entry = new_node_entry;
+
+        // Find node for insertion
+        while (new_entry->IsNode()) {
+            new_node_entry = new_entry;
+            new_entry =
+                &new_entry->GetNode().Emplace(is_inserted, new_key, new_entry->GetNodePostfixLen());
+        }
+        num_entries_ += is_inserted;
+        assert(new_entry != nullptr);
+
+        auto* old_entry = old_node_entry;
+        while (old_entry && old_entry->IsNode()) {
+            old_node_entry = old_entry;
+            old_entry = old_entry->GetNode().Find(old_key, old_entry->GetNodePostfixLen());
+        }
+
+        // Does old_entry exist?
+        if (old_entry == nullptr) {
+            auto iter = Iter(nullptr, nullptr, nullptr, converter_);
+            return std::make_pair(iter, iter);  // old_key not found!
+        }
+
+        // Are we inserting in same node and same quadrant? Or are the keys equal?
+        if (n_diverging_bits == 0) {
+            auto iter = Iter(old_entry, old_node_entry, nullptr, converter_);
+            return std::make_pair(iter, iter);
+        }
+
+        auto iter1 = Iter(old_entry, old_node_entry, nullptr, converter_);
+        // TODO Note: Emplace() may return a sub-child so new_node_entry be a grandparent!
+        auto iter2 = Iter(new_entry, new_node_entry, nullptr, converter_);
+        return std::make_pair(iter1, iter2);
     }
 
     /*
      * Iterates over all entries in the tree. The optional filter allows filtering entries and nodes
-     * (=sub-trees) before returning / traversing them. By default all entries are returned. Filter
+     * (=sub-trees) before returning / traversing them. By default, all entries are returned. Filter
      * functions must implement the same signature as the default 'FilterNoOp'.
      *
      * @param callback The callback function to be called for every entry that matches the query.
@@ -274,9 +438,18 @@ class PhTreeV16 {
      * sub-nodes before they are returned or traversed. Any filter function must follow the
      * signature of the default 'FilterNoOp`.
      */
-    template <typename CALLBACK_FN, typename FILTER = FilterNoOp>
-    void for_each(CALLBACK_FN& callback, FILTER filter = FILTER()) const {
-        ForEach<T, CONVERT, CALLBACK_FN, FILTER>(converter_, callback, filter).run(root_);
+    template <typename CALLBACK, typename FILTER = FilterNoOp>
+    void for_each(CALLBACK&& callback, FILTER&& filter = FILTER()) {
+        ForEach<T, CONVERT, CALLBACK, FILTER>(
+            converter_, std::forward<CALLBACK>(callback), std::forward<FILTER>(filter))
+            .Traverse(root_);
+    }
+
+    template <typename CALLBACK, typename FILTER = FilterNoOp>
+    void for_each(CALLBACK&& callback, FILTER&& filter = FILTER()) const {
+        ForEach<T, CONVERT, CALLBACK, FILTER>(
+            converter_, std::forward<CALLBACK>(callback), std::forward<FILTER>(filter))
+            .Traverse(root_);
     }
 
     /*
@@ -289,14 +462,19 @@ class PhTreeV16 {
      * sub-nodes before they are returned or traversed. Any filter function must follow the
      * signature of the default 'FilterNoOp`.
      */
-    template <typename CALLBACK_FN, typename FILTER = FilterNoOp>
+    template <typename CALLBACK, typename FILTER = FilterNoOp>
     void for_each(
-        const PhBox<DIM, ScalarInternal>& query_box,
-        CALLBACK_FN& callback,
-        FILTER filter = FILTER()) const {
-        ForEachHC<T, CONVERT, CALLBACK_FN, FILTER>(
-            query_box.min(), query_box.max(), converter_, callback, filter)
-            .run(root_);
+        // TODO check copy elision
+        const PhBox<DIM, ScalarInternal> query_box,
+        CALLBACK&& callback,
+        FILTER&& filter = FILTER()) const {
+        ForEachHC<T, CONVERT, CALLBACK, FILTER>(
+            query_box.min(),
+            query_box.max(),
+            converter_,
+            std::forward<CALLBACK>(callback),
+            std::forward<FILTER>(filter))
+            .Traverse(root_);
     }
 
     /*
@@ -307,8 +485,8 @@ class PhTreeV16 {
      * @return an iterator over all (filtered) entries in the tree,
      */
     template <typename FILTER = FilterNoOp>
-    auto begin(FILTER filter = FILTER()) const {
-        return IteratorFull<T, CONVERT, FILTER>(root_, converter_, filter);
+    auto begin(FILTER&& filter = FILTER()) const {
+        return IteratorFull<T, CONVERT, FILTER>(root_, converter_, std::forward<FILTER>(filter));
     }
 
     /*
@@ -321,9 +499,10 @@ class PhTreeV16 {
      * @return Result iterator.
      */
     template <typename FILTER = FilterNoOp>
-    auto begin_query(const PhBox<DIM, ScalarInternal>& query_box, FILTER filter = FILTER()) const {
+    auto begin_query(
+        const PhBox<DIM, ScalarInternal>& query_box, FILTER&& filter = FILTER()) const {
         return IteratorHC<T, CONVERT, FILTER>(
-            root_, query_box.min(), query_box.max(), converter_, filter);
+            root_, query_box.min(), query_box.max(), converter_, std::forward<FILTER>(filter));
     }
 
     /*
@@ -344,17 +523,22 @@ class PhTreeV16 {
     auto begin_knn_query(
         size_t min_results,
         const KeyT& center,
-        DISTANCE distance_function = DISTANCE(),
-        FILTER filter = FILTER()) const {
+        DISTANCE&& distance_function = DISTANCE(),
+        FILTER&& filter = FILTER()) const {
         return IteratorKnnHS<T, CONVERT, DISTANCE, FILTER>(
-            root_, min_results, center, converter_, distance_function, filter);
+            root_,
+            min_results,
+            center,
+            converter_,
+            std::forward<DISTANCE>(distance_function),
+            std::forward<FILTER>(filter));
     }
 
     /*
      * @return An iterator representing the tree's 'end'.
      */
-    const auto& end() const {
-        return the_end_;
+    auto end() const {
+        return IteratorEnd<EntryT>();
     }
 
     /*
@@ -362,7 +546,7 @@ class PhTreeV16 {
      */
     void clear() {
         num_entries_ = 0;
-        root_ = EntryT(0, MAX_BIT_WIDTH<ScalarInternal> - 1);
+        root_ = EntryT({}, std::make_unique<NodeT>(), MAX_BIT_WIDTH<ScalarInternal> - 1);
     }
 
     /*
@@ -384,16 +568,15 @@ class PhTreeV16 {
      * This function is only for debugging.
      */
     auto GetDebugHelper() const {
-        return DebugHelperV16(root_.GetNode(), num_entries_);
+        return DebugHelperV16(root_, num_entries_);
     }
 
   private:
     size_t num_entries_;
-    // Contract: root_ contains a Node with 0 or more entries (the root node is the only Node
+    // Contract: root_ contains a Node with 0 or more entries. The root node is the only Node
     // that is allowed to have less than two entries.
     EntryT root_;
-    IteratorEnd<T, CONVERT> the_end_;
-    CONVERT converter_;
+    CONVERT* converter_;
 };
 
 }  // namespace improbable::phtree::v16
