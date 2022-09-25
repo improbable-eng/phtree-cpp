@@ -33,19 +33,13 @@ const int GLOBAL_MAX = 10000;
 template <dimension_t DIM>
 class IndexBenchmark {
   public:
-    IndexBenchmark(
-        benchmark::State& state,
-        TestGenerator data_type,
-        int num_entities,
-        double avg_query_result_size_);
+    IndexBenchmark(benchmark::State& state, double avg_query_result_size_);
 
     void Benchmark(benchmark::State& state);
 
   private:
     void SetupWorld(benchmark::State& state);
-
     void QueryWorld(benchmark::State& state, PhBox<DIM>& query);
-
     void CreateQuery(PhBox<DIM>& query);
 
     const TestGenerator data_type_;
@@ -53,7 +47,8 @@ class IndexBenchmark {
     const double avg_query_result_size_;
 
     constexpr int query_endge_length() {
-        return (int)(GLOBAL_MAX * pow(avg_query_result_size_ / (double)num_entities_, 1. / (double)DIM));
+        return (
+            int)(GLOBAL_MAX * pow(avg_query_result_size_ / (double)num_entities_, 1. / (double)DIM));
     };
 
     PhTree<DIM, int> tree_;
@@ -63,17 +58,14 @@ class IndexBenchmark {
 };
 
 template <dimension_t DIM>
-IndexBenchmark<DIM>::IndexBenchmark(
-    benchmark::State& state,
-    TestGenerator data_type,
-    int num_entities,
-    double avg_query_result_size)
-: data_type_{data_type}
-, num_entities_(num_entities)
+IndexBenchmark<DIM>::IndexBenchmark(benchmark::State& state, double avg_query_result_size)
+: data_type_{static_cast<TestGenerator>(state.range(1))}
+, num_entities_(state.range(0))
 , avg_query_result_size_(avg_query_result_size)
+, tree_{}
 , random_engine_{1}
 , cube_distribution_{0, GLOBAL_MAX}
-, points_(num_entities) {
+, points_(state.range(0)) {
     logging::SetupDefaultLogging();
     SetupWorld(state);
 }
@@ -98,11 +90,9 @@ void IndexBenchmark<DIM>::SetupWorld(benchmark::State& state) {
         tree_.emplace(points_[i], (int)i);
     }
 
-    state.counters["total_result_count"] = benchmark::Counter(0);
     state.counters["query_rate"] = benchmark::Counter(0, benchmark::Counter::kIsRate);
     state.counters["result_rate"] = benchmark::Counter(0, benchmark::Counter::kIsRate);
     state.counters["avg_result_count"] = benchmark::Counter(0, benchmark::Counter::kAvgIterations);
-
     logging::info("World setup complete.");
 }
 
@@ -113,7 +103,6 @@ void IndexBenchmark<DIM>::QueryWorld(benchmark::State& state, PhBox<DIM>& query_
         ++n;
     }
 
-    state.counters["total_result_count"] += n;
     state.counters["query_rate"] += 1;
     state.counters["result_rate"] += n;
     state.counters["avg_result_count"] += n;
@@ -141,31 +130,9 @@ void PhTree3D(benchmark::State& state, Arguments&&... arguments) {
 }
 
 // index type, scenario name, data_type, num_entities, query_result_size
-// PhTree 3D CUBE
-BENCHMARK_CAPTURE(PhTree3D, WQ_CU_100_of_1K, TestGenerator::CUBE, 1000, 100.0)
-    ->Unit(benchmark::kMillisecond);
-
-BENCHMARK_CAPTURE(PhTree3D, WQ_CU_100_of_10K, TestGenerator::CUBE, 10000, 100.0)
-    ->Unit(benchmark::kMillisecond);
-
-BENCHMARK_CAPTURE(PhTree3D, WQ_CU_100_of_100K, TestGenerator::CUBE, 100000, 100.0)
-    ->Unit(benchmark::kMillisecond);
-
-BENCHMARK_CAPTURE(PhTree3D, WQ_CU_100_of_1M, TestGenerator::CUBE, 1000000, 100.0)
-    ->Unit(benchmark::kMillisecond);
-
-// index type, scenario name, data_type, num_entities, query_result_size
-// PhTree 3D CLUSTER
-BENCHMARK_CAPTURE(PhTree3D, WQ_CL_100_of_1K, TestGenerator::CLUSTER, 1000, 100.0)
-    ->Unit(benchmark::kMillisecond);
-
-BENCHMARK_CAPTURE(PhTree3D, WQ_CL_100_of_10K, TestGenerator::CLUSTER, 10000, 100.0)
-    ->Unit(benchmark::kMillisecond);
-
-BENCHMARK_CAPTURE(PhTree3D, WQ_CL_100_of_100K, TestGenerator::CLUSTER, 100000, 100.0)
-    ->Unit(benchmark::kMillisecond);
-
-BENCHMARK_CAPTURE(PhTree3D, WQ_CL_100_of_1M, TestGenerator::CLUSTER, 1000000, 100.0)
+BENCHMARK_CAPTURE(PhTree3D, WQ_100, 100.0)
+    ->RangeMultiplier(10)
+    ->Ranges({{1000, 1000 * 1000}, {TestGenerator::CUBE, TestGenerator::CLUSTER}})
     ->Unit(benchmark::kMillisecond);
 
 BENCHMARK_MAIN();

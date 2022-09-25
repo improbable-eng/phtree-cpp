@@ -32,15 +32,17 @@ const double BOX_LEN = 10;
  */
 template <dimension_t DIM>
 class IndexBenchmark {
+    using Index = PhTreeBoxD<DIM, int>;
+
   public:
-    IndexBenchmark(benchmark::State& state, TestGenerator data_type, int num_entities);
+    explicit IndexBenchmark(benchmark::State& state);
 
     void Benchmark(benchmark::State& state);
 
   private:
     void SetupWorld(benchmark::State& state);
 
-    void Insert(benchmark::State& state, PhTreeBoxD<DIM, int>& tree);
+    void Insert(benchmark::State& state, Index& tree);
 
     const TestGenerator data_type_;
     const size_t num_entities_;
@@ -48,9 +50,10 @@ class IndexBenchmark {
 };
 
 template <dimension_t DIM>
-IndexBenchmark<DIM>::IndexBenchmark(
-    benchmark::State& state, TestGenerator data_type, int num_entities)
-: data_type_{data_type}, num_entities_(num_entities), boxes_(num_entities) {
+IndexBenchmark<DIM>::IndexBenchmark(benchmark::State& state)
+: data_type_{static_cast<TestGenerator>(state.range(1))}
+, num_entities_(state.range(0))
+, boxes_(state.range(0)) {
     logging::SetupDefaultLogging();
     SetupWorld(state);
 }
@@ -59,7 +62,7 @@ template <dimension_t DIM>
 void IndexBenchmark<DIM>::Benchmark(benchmark::State& state) {
     for (auto _ : state) {
         state.PauseTiming();
-        auto* tree = new PhTreeBoxD<DIM, int>();
+        auto* tree = new Index();
         state.ResumeTiming();
 
         Insert(state, *tree);
@@ -83,7 +86,7 @@ void IndexBenchmark<DIM>::SetupWorld(benchmark::State& state) {
 }
 
 template <dimension_t DIM>
-void IndexBenchmark<DIM>::Insert(benchmark::State& state, PhTreeBoxD<DIM, int>& tree) {
+void IndexBenchmark<DIM>::Insert(benchmark::State& state, Index& tree) {
     for (size_t i = 0; i < num_entities_; ++i) {
         PhBoxD<DIM>& p = boxes_[i];
         tree.emplace(p, (int)i);
@@ -96,37 +99,15 @@ void IndexBenchmark<DIM>::Insert(benchmark::State& state, PhTreeBoxD<DIM, int>& 
 }  // namespace
 
 template <typename... Arguments>
-void PhTree3D(benchmark::State& state, Arguments&&... arguments) {
-    IndexBenchmark<3> benchmark{state, arguments...};
+void PhTree3D(benchmark::State& state, Arguments&&...) {
+    IndexBenchmark<3> benchmark{state};
     benchmark.Benchmark(state);
 }
 
 // index type, scenario name, data_generator, num_entities
-// PhTree 3D CUBE
-BENCHMARK_CAPTURE(PhTree3D, INS_CU_1K, TestGenerator::CUBE, 1000)->Unit(benchmark::kMillisecond);
-
-BENCHMARK_CAPTURE(PhTree3D, INS_CU_10K, TestGenerator::CUBE, 10000)->Unit(benchmark::kMillisecond);
-
-BENCHMARK_CAPTURE(PhTree3D, INS_CU_100K, TestGenerator::CUBE, 100000)
-    ->Unit(benchmark::kMillisecond);
-
-BENCHMARK_CAPTURE(PhTree3D, INS_CU_1M, TestGenerator::CUBE, 1000000)->Unit(benchmark::kMillisecond);
-
-BENCHMARK_CAPTURE(PhTree3D, INS_CU_10M, TestGenerator::CUBE, 10000000)
-    ->Unit(benchmark::kMillisecond);
-
-BENCHMARK_CAPTURE(PhTree3D, INS_CL_1K, TestGenerator::CLUSTER, 1000)->Unit(benchmark::kMillisecond);
-
-BENCHMARK_CAPTURE(PhTree3D, INS_CL_10K, TestGenerator::CLUSTER, 10000)
-    ->Unit(benchmark::kMillisecond);
-
-BENCHMARK_CAPTURE(PhTree3D, INS_CL_100K, TestGenerator::CLUSTER, 100000)
-    ->Unit(benchmark::kMillisecond);
-
-BENCHMARK_CAPTURE(PhTree3D, INS_CL_1M, TestGenerator::CLUSTER, 1000000)
-    ->Unit(benchmark::kMillisecond);
-
-BENCHMARK_CAPTURE(PhTree3D, INS_CL_10M, TestGenerator::CLUSTER, 10000000)
+BENCHMARK_CAPTURE(PhTree3D, INSERT, 0)
+    ->RangeMultiplier(10)
+    ->Ranges({{1000, 10 * 1000 * 1000}, {TestGenerator::CUBE, TestGenerator::CLUSTER}})
     ->Unit(benchmark::kMillisecond);
 
 BENCHMARK_MAIN();
