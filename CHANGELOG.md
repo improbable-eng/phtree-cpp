@@ -5,7 +5,33 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-Nothing yet.
+### Changed
+- Nothing yet
+
+## [1.2.0] - 2022-04-14
+### Changed
+- Bugfix: FilterSphere was not working correctly. [#27](https://github.com/tzaeschke/phtree-cpp/issues/27)
+- Potentially **BREAKING CHANGE**: Refactored API of all methods that accept callbacks and filters to
+  accept universal/forwarding references.
+  Also changed filters and callback to not require `const` methods. 
+  [#22](https://github.com/tzaeschke/phtree-cpp/issues/22)
+- Clean up iterator implementations. [#19](https://github.com/tzaeschke/phtree-cpp/issues/19)
+- Make PhTree and PhTreeMultimap movable (move-assign/copy). [#18](https://github.com/tzaeschke/phtree-cpp/issues/18)
+- Potentially **BREAKING CHANGE** when using `IsNodeValid()` in provided filters:
+  Changed `bit_width_t` from `uin16_t` to `uint32_t`. This improves performance of 3D insert/emplace
+  on small datasets by up to 15%. To avoid warnings that meant that the API of `FilterAABB` and `FilterSphere` 
+  had to be changed to accept `uint32_t` instead of `int`. This may break some implementations.
+  [#17](https://github.com/tzaeschke/phtree-cpp/pull/17)
+- DIM>8 now uses custom b_plus_tree_map instead of std::map. This improves performance for all operations, e.g.
+  window queries on large datasets are up to 4x faster. Benchmarks results can be found in the issue. 
+  [#14](https://github.com/tzaeschke/phtree-cpp/issues/14)
+- postfix/infix field moved from Node to Entry. This avoids indirections and improves performance of most by ~10%.
+  operations by 5-15%.  [#11](https://github.com/tzaeschke/phtree-cpp/issues/11)
+- Entries now use 'union' to store children.  [#9](https://github.com/tzaeschke/phtree-cpp/issues/9)
+- Avoid unnecessary find() when removing a node. [#5](https://github.com/tzaeschke/phtree-cpp/issues/5)
+- Avoid unnecessary key copy when inserting a node. [#4](https://github.com/tzaeschke/phtree-cpp/issues/4)
+- for_each(callback, filter) was traversing too many nodes. [#2](https://github.com/tzaeschke/phtree-cpp/issues/2)
+- Build improvements for bazel/cmake
 
 ## [1.1.1] - 2022-01-30
 ### Changed
@@ -70,7 +96,8 @@ Nothing yet.
 - Nothing.
 
 
-[Unreleased]: https://github.com/improbable-eng/phtree-cpp/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/improbable-eng/phtree-cpp/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/improbable-eng/phtree-cpp/compare/v1.2.0...v1.1.0
 [1.1.1]: https://github.com/improbable-eng/phtree-cpp/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/improbable-eng/phtree-cpp/compare/v1.0.0...v1.1.0
 [1.0.1]: https://github.com/improbable-eng/phtree-cpp/compare/v1.0.0...v1.0.1

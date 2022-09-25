@@ -26,32 +26,35 @@ template <dimension_t DIM, typename T, typename SCALAR>
 class Node;
 
 template <typename T, typename CONVERT, typename FILTER>
-class IteratorFull : public IteratorBase<T, CONVERT, FILTER> {
+class IteratorFull : public IteratorWithFilter<T, CONVERT, FILTER> {
     static constexpr dimension_t DIM = CONVERT::DimInternal;
     using SCALAR = typename CONVERT::ScalarInternal;
     using NodeT = Node<DIM, T, SCALAR>;
-    using EntryT = typename IteratorBase<T, CONVERT, FILTER>::EntryT;
+    using EntryT = typename IteratorWithFilter<T, CONVERT, FILTER>::EntryT;
 
   public:
-    IteratorFull(const EntryT& root, const CONVERT& converter, FILTER filter)
-    : IteratorBase<T, CONVERT, FILTER>(converter, filter), stack_{}, stack_size_{0} {
+    template <typename F>
+    IteratorFull(const EntryT& root, const CONVERT* converter, F&& filter)
+    : IteratorWithFilter<T, CONVERT, F>(converter, std::forward<F>(filter))
+    , stack_{}
+    , stack_size_{0} {
         PrepareAndPush(root.GetNode());
         FindNextElement();
     }
 
-    IteratorFull& operator++() {
+    IteratorFull& operator++() noexcept {
         FindNextElement();
         return *this;
     }
 
-    IteratorFull operator++(int) {
+    IteratorFull operator++(int) noexcept {
         IteratorFull iterator(*this);
         ++(*this);
         return iterator;
     }
 
   private:
-    void FindNextElement() {
+    void FindNextElement() noexcept {
         while (!IsEmpty()) {
             auto* p = &Peek();
             while (*p != PeekEnd()) {
@@ -82,22 +85,22 @@ class IteratorFull : public IteratorBase<T, CONVERT, FILTER> {
         return stack_[stack_size_ - 1].first;
     }
 
-    auto& Peek() {
+    auto& Peek() noexcept {
         assert(stack_size_ > 0);
         return stack_[stack_size_ - 1].first;
     }
 
-    auto& PeekEnd() {
+    auto& PeekEnd() noexcept {
         assert(stack_size_ > 0);
         return stack_[stack_size_ - 1].second;
     }
 
-    auto& Pop() {
+    auto& Pop() noexcept {
         assert(stack_size_ > 0);
         return stack_[--stack_size_].first;
     }
 
-    bool IsEmpty() {
+    bool IsEmpty() noexcept {
         return stack_size_ == 0;
     }
 

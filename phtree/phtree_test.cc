@@ -57,6 +57,13 @@ static void reset_id_counters() {
     destruct_count_ = 0;
 }
 
+static void print_id_counters() {
+    std::cout << "dc=" << default_construct_count_ << " c=" << construct_count_
+              << " cc=" << copy_construct_count_ << " mc=" << move_construct_count_
+              << " ca=" << copy_assign_count_ << " ma=" << move_assign_count_
+              << " d=" << destruct_count_ << std::endl;
+}
+
 struct Id {
     Id() : _i{0} {
         ++default_construct_count_;
@@ -64,7 +71,7 @@ struct Id {
 
     explicit Id(const size_t i) : _i{static_cast<int>(i)} {
         ++construct_count_;
-    };
+    }
 
     Id(const Id& other) {
         ++copy_construct_count_;
@@ -76,21 +83,28 @@ struct Id {
         _i = other._i;
     }
 
-    bool operator==(const Id& rhs) const {
+    Id& operator=(const Id& other) noexcept {
         ++copy_assign_count_;
+        _i = other._i;
+        return *this;
+    }
+    Id& operator=(Id&& other) noexcept {
+        ++move_assign_count_;
+        _i = other._i;
+        return *this;
+    }
+
+    bool operator==(const Id& rhs) const {
         return _i == rhs._i;
     }
 
     bool operator==(Id&& rhs) const {
-        ++move_assign_count_;
         return _i == rhs._i;
     }
 
     ~Id() {
         ++destruct_count_;
     }
-
-    Id& operator=(Id const& rhs) = default;
 
     int _i;
 };
@@ -176,7 +190,7 @@ void SmokeTestBasicOps(size_t N) {
         ASSERT_EQ(id._i, tree.find(p)->_i);
         ASSERT_EQ(i + 1, tree.size());
 
-        // try add again
+        // try insert/emplace again
         ASSERT_FALSE(tree.insert(p, id).second);
         ASSERT_FALSE(tree.emplace(p, id).second);
         ASSERT_EQ(tree.count(p), 1);
@@ -221,7 +235,9 @@ void SmokeTestBasicOps(size_t N) {
     ASSERT_TRUE(tree.empty());
     PhTreeDebugHelper::CheckConsistency(tree);
 
-    ASSERT_EQ(construct_count_ + copy_construct_count_ + move_construct_count_, destruct_count_);
+    // Normal construction and destruction should be symmetric. Move-construction is ignored.
+    ASSERT_GE(construct_count_ + copy_construct_count_ + move_construct_count_, destruct_count_);
+    ASSERT_LE(construct_count_ + copy_construct_count_, destruct_count_);
     // The following assertions exist only as sanity checks and may need adjusting.
     // There is nothing fundamentally wrong if a change in the implementation violates
     // any of the following assertions, as long as performance/memory impact is observed.
@@ -237,7 +253,10 @@ void SmokeTestBasicOps(size_t N) {
         // small node require a lot of copying/moving
         ASSERT_GE(construct_count_ * 3, move_construct_count_);
     } else {
-        ASSERT_GE(construct_count_ * 2, move_construct_count_);
+        if (construct_count_ * 15 < move_construct_count_) {
+            print_id_counters();
+        }
+        ASSERT_GE(construct_count_ * 15, move_construct_count_);
     }
 }
 
@@ -538,6 +557,10 @@ TEST(PhTreeTest, TestUpdateWithEmplaceHint) {
 
     ASSERT_EQ(N, tree.size());
     tree.clear();
+
+    tree.emplace_hint(tree.end(), {11, 21, 31}, 421);
+    tree.emplace_hint(tree.begin(), {1, 2, 3}, 42);
+    ASSERT_EQ(2, tree.size());
 }
 
 TEST(PhTreeTest, TestEraseByIterator) {
@@ -715,6 +738,32 @@ TEST(PhTreeTest, TestWindowQuery1) {
         n++;
     }
     ASSERT_EQ(N, n);
+}
+
+TEST(PhTreeTest, TestWindowQuery1_WithFilter) {
+    size_t N = 1000;
+    const dimension_t dim = 3;
+    TestTree<dim, Id> tree;
+    std::vector<TestPoint<dim>> points;
+    populate(tree, points, N);
+
+    struct Counter {
+        void operator()(TestPoint<dim>, Id& t) {
+            ++n_;
+            id_ = t;
+        }
+        Id id_{};
+        size_t n_ = 0;
+    };
+
+    for (size_t i = 0; i < N; i++) {
+        TestPoint<dim>& p = points.at(i);
+        Counter callback{};
+        FilterAABB filter(p, p, tree.converter());
+        tree.for_each(callback, filter);
+        ASSERT_EQ(i, callback.id_._i);
+        ASSERT_EQ(1, callback.n_);
+    }
 }
 
 TEST(PhTreeTest, TestWindowQueryMany) {
@@ -1029,4 +1078,145 @@ TEST(PhTreeTest, SmokeTestPoint1) {
     ASSERT_EQ(0, tree.erase(p));
     ASSERT_EQ(0, tree.size());
     ASSERT_TRUE(tree.empty());
+}
+
+template <typename TREE>
+void test_tree(TREE& tree) {
+    PhPoint<3> p{1, 2, 3};
+
+    // test various operations
+    tree.emplace(p, Id{2});  // already exists
+    Id id3{3};
+    tree.insert(p, id3);  // already exists
+    ASSERT_EQ(tree.size(), 1);
+    ASSERT_EQ(tree.find(p).second()._i, 1);
+    ASSERT_EQ(tree[p]._i, 1);
+
+    auto q_window = tree.begin_query({p, p});
+    ASSERT_EQ(1, q_window->_i);
+    ++q_window;
+    ASSERT_EQ(q_window, tree.end());
+
+    auto q_extent = tree.begin();
+    ASSERT_EQ(1, q_extent->_i);
+    ++q_extent;
+    ASSERT_EQ(q_extent, tree.end());
+
+    auto q_knn = tree.begin_knn_query(10, p, DistanceEuclidean<3>());
+    ASSERT_EQ(1, q_knn->_i);
+    ++q_knn;
+    ASSERT_EQ(q_knn, tree.end());
+
+    ASSERT_EQ(1, tree.erase(p));
+    ASSERT_EQ(0, tree.size());
+    ASSERT_EQ(0, tree.erase(p));
+    ASSERT_EQ(0, tree.size());
+    ASSERT_TRUE(tree.empty());
+}
+
+TEST(PhTreeTest, TestMoveConstruct) {
+    // Test edge case: only one entry in tree
+    PhPoint<3> p{1, 2, 3};
+    TestTree<3, Id> tree1;
+    tree1.emplace(p, Id{1});
+
+    TestTree<3, Id> tree{std::move(tree1)};
+    test_tree(tree);
+    tree.~PhTree();
+}
+
+TEST(PhTreeTest, TestMoveAssign) {
+    // Test edge case: only one entry in tree
+    PhPoint<3> p{1, 2, 3};
+    TestTree<3, Id> tree1;
+    tree1.emplace(p, Id{1});
+
+    TestTree<3, Id> tree{};
+    tree = std::move(tree1);
+    test_tree(tree);
+    tree.~PhTree();
+}
+
+size_t count_pre{0};
+size_t count_post{0};
+size_t count_query{0};
+
+template <dimension_t DIM, typename SCALAR = scalar_64_t>
+struct DebugConverterNoOp : public ConverterPointBase<DIM, SCALAR, SCALAR> {
+    using BASE = ConverterPointBase<DIM, SCALAR, SCALAR>;
+    using Point = typename BASE::KeyExternal;
+    using PointInternal = typename BASE::KeyInternal;
+
+    constexpr const PointInternal& pre(const Point& point) const {
+        ++count_pre;
+        ++const_cast<size_t&>(count_pre_local);
+        return point;
+    }
+
+    constexpr const Point& post(const PointInternal& point) const {
+        ++count_post;
+        ++const_cast<size_t&>(count_post_local);
+        return point;
+    }
+
+    constexpr const PhBox<DIM, SCALAR>& pre_query(const PhBox<DIM, SCALAR>& box) const {
+        ++count_query;
+        ++const_cast<size_t&>(count_query_local);
+        return box;
+    }
+
+    size_t count_pre_local{0};
+    size_t count_post_local{0};
+    size_t count_query_local{0};
+};
+
+TEST(PhTreeTest, TestMoveAssignCustomConverter) {
+    // Test edge case: only one entry in tree
+    PhPoint<3> p{1, 2, 3};
+    auto converter = DebugConverterNoOp<3>();
+    auto tree1 = PhTree<3, Id, DebugConverterNoOp<3>>(converter);
+    tree1.emplace(p, Id{1});
+    ASSERT_GE(tree1.converter().count_pre_local, 1);
+    ASSERT_EQ(tree1.converter().count_pre_local, count_pre);
+
+    PhTree<3, Id, DebugConverterNoOp<3>> tree{};
+    tree = std::move(tree1);
+    // Assert that converter got moved (or copied?):
+    ASSERT_GE(tree.converter().count_pre_local, 1);
+    ASSERT_EQ(tree.converter().count_pre_local, count_pre);
+
+    test_tree(tree);
+    ASSERT_GE(tree.converter().count_pre_local, 2);
+    ASSERT_EQ(tree.converter().count_pre_local, count_pre);
+    tree.~PhTree();
+}
+
+TEST(PhTreeTest, TestMovableIterators) {
+    // Test edge case: only one entry in tree
+    PhPoint<3> p{1, 2, 3};
+    auto tree = TestTree<3, Id>();
+    tree.emplace(p, Id{1});
+
+    ASSERT_TRUE(std::is_move_constructible_v<decltype(tree.begin())>);
+    ASSERT_TRUE(std::is_move_assignable_v<decltype(tree.begin())>);
+    ASSERT_NE(tree.begin(), tree.end());
+
+    ASSERT_TRUE(std::is_move_constructible_v<decltype(tree.end())>);
+    ASSERT_TRUE(std::is_move_assignable_v<decltype(tree.end())>);
+
+    ASSERT_TRUE(std::is_move_constructible_v<decltype(tree.find(p))>);
+    ASSERT_TRUE(std::is_move_assignable_v<decltype(tree.find(p))>);
+    ASSERT_NE(tree.find(p), tree.end());
+
+    TestTree<3, Id>::QueryBox qb{{1, 2, 3}, {4, 5, 6}};
+    FilterEvenId<3, Id> filter{};
+    ASSERT_TRUE(std::is_move_constructible_v<decltype(tree.begin_query(qb, filter))>);
+    // Not movable due to constant fields
+    // ASSERT_TRUE(std::is_move_assignable_v<decltype(tree.begin_query(qb, filter))>);
+
+    ASSERT_TRUE(std::is_move_constructible_v<decltype(tree.begin_knn_query(
+                    3, {2, 3, 4}, DistanceEuclidean<3>()))>);
+    // Not movable due to constant fields
+    // ASSERT_TRUE(std::is_move_assignable_v<decltype(tree.begin_knn_query(
+    //                3, {2, 3, 4}, DistanceEuclidean<3>()))>);
 }

@@ -18,7 +18,7 @@
 #define PHTREE_V16_FOR_EACH_HC_H
 
 #include "../common/common.h"
-#include "iterator_simple.h"
+#include "iterator_with_parent.h"
 
 namespace improbable::phtree::v16 {
 
@@ -33,40 +33,36 @@ namespace improbable::phtree::v16 {
  * For details see  "Efficient Z-Ordered Traversal of Hypercube Indexes" by T. Zäschke, M.C. Norrie,
  * 2017.
  */
-template <typename T, typename CONVERT, typename CALLBACK_FN, typename FILTER>
+template <typename T, typename CONVERT, typename CALLBACK, typename FILTER>
 class ForEachHC {
     static constexpr dimension_t DIM = CONVERT::DimInternal;
-    using KeyExternal = typename CONVERT::KeyExternal;
     using KeyInternal = typename CONVERT::KeyInternal;
     using SCALAR = typename CONVERT::ScalarInternal;
     using EntryT = Entry<DIM, T, SCALAR>;
-    using NodeT = Node<DIM, T, SCALAR>;
 
   public:
+    template <typename CB, typename F>
     ForEachHC(
         const KeyInternal& range_min,
         const KeyInternal& range_max,
-        const CONVERT& converter,
-        CALLBACK_FN& callback,
-        FILTER filter)
+        const CONVERT* converter,
+        CB&& callback,
+        F&& filter)
     : range_min_{range_min}
     , range_max_{range_max}
     , converter_{converter}
-    , callback_{callback}
-    , filter_(std::move(filter)) {}
+    , callback_{std::forward<CB>(callback)}
+    , filter_(std::forward<F>(filter)) {}
 
-    void run(const EntryT& root) {
-        assert(root.IsNode());
-        TraverseNode(root.GetKey(), root.GetNode());
-    }
-
-  private:
-    void TraverseNode(const KeyInternal& key, const NodeT& node) {
+    void Traverse(const EntryT& entry) {
+        assert(entry.IsNode());
         hc_pos_t mask_lower = 0;
         hc_pos_t mask_upper = 0;
-        CalcLimits(node.GetPostfixLen(), key, mask_lower, mask_upper);
-        auto iter = node.Entries().lower_bound(mask_lower);
-        auto end = node.Entries().end();
+        CalcLimits(entry.GetNodePostfixLen(), entry.GetKey(), mask_lower, mask_upper);
+        auto& entries = entry.GetNode().Entries();
+        auto postfix_len = entry.GetNodePostfixLen();
+        auto iter = entries.lower_bound(mask_lower);
+        auto end = entries.end();
         for (; iter != end && iter->first <= mask_upper; ++iter) {
             auto child_hc_pos = iter->first;
             // Use bit-mask magic to check whether we are in a valid quadrant.
@@ -75,29 +71,30 @@ class ForEachHC {
                 const auto& child = iter->second;
                 const auto& child_key = child.GetKey();
                 if (child.IsNode()) {
-                    const auto& child_node = child.GetNode();
-                    if (CheckNode(child_key, child_node)) {
-                        TraverseNode(child_key, child_node);
+                    if (CheckNode(child, postfix_len)) {
+                        Traverse(child);
                     }
                 } else {
                     T& value = child.GetValue();
                     if (IsInRange(child_key, range_min_, range_max_) &&
-                        ApplyFilter(child_key, value)) {
-                        callback_(converter_.post(child_key), value);
+                        filter_.IsEntryValid(child_key, value)) {
+                        callback_(converter_->post(child_key), value);
                     }
                 }
             }
         }
     }
 
-    bool CheckNode(const KeyInternal& key, const NodeT& node) const {
+    bool CheckNode(const EntryT& entry, bit_width_t parent_postfix_len) {
+        const KeyInternal& key = entry.GetKey();
         // Check if the node overlaps with the query box.
         // An infix with len=0 implies that at least part of the child node overlaps with the query,
         // otherwise the bit mask checking would have returned 'false'.
-        if (node.GetInfixLen() > 0) {
+        // Putting it differently, if the infix has len=0, then there is no point in validating it.
+        if (entry.HasNodeInfix(parent_postfix_len)) {
             // Mask for comparing the prefix with the query boundaries.
-            assert(node.GetPostfixLen() + 1 < MAX_BIT_WIDTH<SCALAR>);
-            SCALAR comparison_mask = MAX_MASK<SCALAR> << (node.GetPostfixLen() + 1);
+            assert(entry.GetNodePostfixLen() + 1 < MAX_BIT_WIDTH<SCALAR>);
+            SCALAR comparison_mask = MAX_MASK<SCALAR> << (entry.GetNodePostfixLen() + 1);
             for (dimension_t dim = 0; dim < DIM; ++dim) {
                 SCALAR prefix = key[dim] & comparison_mask;
                 if (prefix > range_max_[dim] || prefix < (range_min_[dim] & comparison_mask)) {
@@ -105,15 +102,7 @@ class ForEachHC {
                 }
             }
         }
-        return ApplyFilter(key, node);
-    }
-
-    [[nodiscard]] bool ApplyFilter(const KeyInternal& key, const NodeT& node) const {
-        return filter_.IsNodeValid(key, node.GetPostfixLen() + 1);
-    }
-
-    [[nodiscard]] bool ApplyFilter(const KeyInternal& key, const T& value) const {
-        return filter_.IsEntryValid(key, value);
+        return filter_.IsNodeValid(key, entry.GetNodePostfixLen() + 1);
     }
 
     void CalcLimits(
@@ -180,8 +169,8 @@ class ForEachHC {
 
     const KeyInternal range_min_;
     const KeyInternal range_max_;
-    CONVERT converter_;
-    CALLBACK_FN& callback_;
+    const CONVERT* converter_;
+    CALLBACK callback_;
     FILTER filter_;
 };
 }  // namespace improbable::phtree::v16

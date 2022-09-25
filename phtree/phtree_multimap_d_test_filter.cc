@@ -14,18 +14,23 @@
  * limitations under the License.
  */
 
-#include "phtree/phtree.h"
+#include "phtree/phtree_multimap.h"
 #include <gtest/gtest.h>
 #include <random>
 #include <unordered_set>
 
 using namespace improbable::phtree;
 
+// Number of entries that have the same coordinate
+static const size_t NUM_DUPL = 4;
+[[maybe_unused]] static const double WORLD_MIN = -1000;
+[[maybe_unused]] static const double WORLD_MAX = 1000;
+
 template <dimension_t DIM>
 using TestPoint = PhPointD<DIM>;
 
 template <dimension_t DIM, typename T>
-using TestTree = PhTreeD<DIM, T>;
+using TestTree = PhTreeMultiMap<DIM, T, ConverterIEEE<DIM>>;
 
 class DoubleRng {
   public:
@@ -57,23 +62,47 @@ struct Id {
     int _i;
 };
 
+namespace std {
+template <>
+struct hash<Id> {
+    size_t operator()(const Id& x) const {
+        return std::hash<int>{}(x._i);
+    }
+};
+};  // namespace std
+
+struct IdHash {
+    template <class T1, class T2>
+    std::size_t operator()(std::pair<T1, T2> const& v) const {
+        return std::hash<T1>()(v.size());
+    }
+};
+
 template <dimension_t DIM>
 void generateCube(std::vector<TestPoint<DIM>>& points, size_t N) {
-    DoubleRng rng(-1000, 1000);
-    auto refTree = std::map<TestPoint<DIM>, size_t>();
+    assert(N % NUM_DUPL == 0);
+    DoubleRng rng(WORLD_MIN, WORLD_MAX);
+    auto reference_set = std::unordered_map<TestPoint<DIM>, size_t>();
 
     points.reserve(N);
-    for (size_t i = 0; i < N; i++) {
-        auto point = TestPoint<DIM>{rng.next(), rng.next(), rng.next()};
-        if (refTree.count(point) != 0) {
+    for (size_t i = 0; i < N / NUM_DUPL; i++) {
+        // create duplicates, ie. entries with the same coordinates. However, avoid unintentional
+        // duplicates.
+        TestPoint<DIM> key{};
+        for (dimension_t d = 0; d < DIM; ++d) {
+            key[d] = rng.next();
+        }
+        if (reference_set.count(key) != 0) {
             i--;
             continue;
         }
-
-        refTree.emplace(point, i);
-        points.push_back(point);
+        reference_set.emplace(key, i);
+        for (size_t dupl = 0; dupl < NUM_DUPL; dupl++) {
+            auto point = TestPoint<DIM>(key);
+            points.push_back(point);
+        }
     }
-    ASSERT_EQ(refTree.size(), N);
+    ASSERT_EQ(reference_set.size(), N / NUM_DUPL);
     ASSERT_EQ(points.size(), N);
 }
 
@@ -217,7 +246,7 @@ struct CallbackCount {
         ++f_destruct_;
     }
 
-    void operator()(TestPoint<DIM>, Id& t) {
+    void operator()(const TestPoint<DIM>, const Id& t) {
         static_id = t._i;
     }
 };
@@ -240,8 +269,7 @@ struct CallbackConst {
     }
 };
 
-[[maybe_unused]]
-static void print_id_counters() {
+[[maybe_unused]] static void print_id_counters() {
     std::cout << "dc=" << f_default_construct_ << " c=" << f_construct_
               << " cc=" << f_copy_construct_ << " mc=" << f_move_construct_
               << " ca=" << f_copy_assign_ << " ma=" << f_move_assign_ << " d=" << f_destruct_
@@ -408,74 +436,4 @@ TEST(PhTreeTest, TestFilterAPI_KNN) {
     // rvalue
     ASSERT_EQ(treeC.begin_knn_query(3, {2, 3, 4}, DistanceCount<3>{}, FilterConst<3, Id>())->_i, 1);
     f_reset_id_counters();
-}
-
-template <dimension_t DIM>
-double distance(const TestPoint<DIM>& p1, const TestPoint<DIM>& p2) {
-    double sum2 = 0;
-    for (dimension_t i = 0; i < DIM; ++i) {
-        double d2 = p1[i] - p2[i];
-        sum2 += d2 * d2;
-    }
-    return sqrt(sum2);
-};
-
-template <dimension_t DIM>
-void referenceSphereQuery(
-    std::vector<TestPoint<DIM>>& points,
-    TestPoint<DIM>& center,
-    double radius,
-    std::set<size_t>& result) {
-    for (size_t i = 0; i < points.size(); i++) {
-        auto& p = points[i];
-        if (distance(center, p) <= radius) {
-            result.insert(i);
-        }
-    }
-}
-
-// We use 'int&' because gtest does not compile with assertions in non-void functions.
-template <dimension_t DIM>
-void testSphereQuery(TestPoint<DIM>& center, double radius, size_t N, int& result) {
-    TestTree<DIM, size_t> tree;
-    std::vector<TestPoint<DIM>> points;
-    populate(tree, points, N);
-
-    std::set<size_t> referenceResult;
-    referenceSphereQuery(points, center, radius, referenceResult);
-
-    result = 0;
-    auto filter = FilterSphere(center, radius, tree.converter());
-    for (auto it = tree.begin(filter); it != tree.end(); it++) {
-        auto& x = *it;
-        ASSERT_GE(x, 0);
-        ASSERT_EQ(referenceResult.count(x), 1);
-        result++;
-    }
-    ASSERT_EQ(referenceResult.size(), result);
-}
-
-TEST(PhTreeDTest, TestSphereQuery0) {
-    const dimension_t dim = 3;
-    TestPoint<dim> p{-10000, -10000, -10000};
-    int n = 0;
-    testSphereQuery<dim>(p, 0.1, 100, n);
-    ASSERT_EQ(0, n);
-}
-
-TEST(PhTreeDTest, TestSphereQueryMany) {
-    const dimension_t dim = 3;
-    TestPoint<dim> p{0, 0, 0};
-    int n = 0;
-    testSphereQuery<dim>(p, 1000, 1000, n);
-    ASSERT_GT(n, 400);
-    ASSERT_LT(n, 800);
-}
-
-TEST(PhTreeDTest, TestSphereQueryAll) {
-    const dimension_t dim = 3;
-    TestPoint<dim> p{0, 0, 0};
-    int n = 0;
-    testSphereQuery<dim>(p, 10000, 1000, n);
-    ASSERT_EQ(1000, n);
 }

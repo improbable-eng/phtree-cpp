@@ -56,8 +56,11 @@ class IteratorBase {
     friend PHTREE;
     using T = typename PHTREE::ValueType;
 
+  protected:
+    using BucketIterType = typename PHTREE::BucketIterType;
+
   public:
-    explicit IteratorBase() noexcept : current_value_ptr_{nullptr}, is_finished_{false} {}
+    explicit IteratorBase() noexcept : current_value_ptr_{nullptr} {}
 
     T& operator*() const noexcept {
         assert(current_value_ptr_);
@@ -71,26 +74,16 @@ class IteratorBase {
 
     friend bool operator==(
         const IteratorBase<PHTREE>& left, const IteratorBase<PHTREE>& right) noexcept {
-        // Note: The following compares pointers to Entry objects (actually: their values T)
-        // so it should be _fast_ and return 'true' only for identical entries.
-        static_assert(std::is_pointer_v<decltype(left.current_value_ptr_)>);
-        return (left.is_finished_ && right.Finished()) ||
-            (!left.is_finished_ && !right.Finished() &&
-             left.current_value_ptr_ == right.current_value_ptr_);
+        return left.current_value_ptr_ == right.current_value_ptr_;
     }
 
     friend bool operator!=(
         const IteratorBase<PHTREE>& left, const IteratorBase<PHTREE>& right) noexcept {
-        return !(left == right);
+        return left.current_value_ptr_ != right.current_value_ptr_;
     }
 
   protected:
-    [[nodiscard]] bool Finished() const noexcept {
-        return is_finished_;
-    }
-
     void SetFinished() noexcept {
-        is_finished_ = true;
         current_value_ptr_ = nullptr;
     }
 
@@ -100,41 +93,21 @@ class IteratorBase {
 
   private:
     const T* current_value_ptr_;
-    bool is_finished_;
 };
 
-template <typename ITERATOR_PH, typename PHTREE, typename FILTER = FilterNoOp>
+template <typename ITERATOR_PH, typename PHTREE>
 class IteratorNormal : public IteratorBase<PHTREE> {
     friend PHTREE;
-    using BucketIterType = typename PHTREE::BucketIterType;
-    using PhTreeIterEndType = typename PHTREE::EndType;
+    using BucketIterType = typename IteratorBase<PHTREE>::BucketIterType;
 
   public:
-    explicit IteratorNormal(const PhTreeIterEndType& iter_ph_end) noexcept
-    : IteratorBase<PHTREE>()
-    , iter_ph_end_{iter_ph_end}
-    , iter_ph_{iter_ph_end}
-    , iter_bucket_{}
-    , filter_{} {
-        this->SetFinished();
-    }
+    explicit IteratorNormal() noexcept : IteratorBase<PHTREE>(), iter_ph_{}, iter_bucket_{} {}
 
-    // Why are we passing two iterators by reference + std::move?
-    // See: https://abseil.io/tips/117
-    IteratorNormal(
-        const PhTreeIterEndType& iter_ph_end,
-        ITERATOR_PH iter_ph,
-        BucketIterType iter_bucket,
-        const FILTER filter = FILTER()) noexcept
+    template <typename ITER_PH, typename BucketIterType>
+    IteratorNormal(ITER_PH&& iter_ph, BucketIterType&& iter_bucket) noexcept
     : IteratorBase<PHTREE>()
-    , iter_ph_end_{iter_ph_end}
-    , iter_ph_{std::move(iter_ph)}
-    , iter_bucket_{std::move(iter_bucket)}
-    , filter_{filter} {
-        if (iter_ph == iter_ph_end) {
-            this->SetFinished();
-            return;
-        }
+    , iter_ph_{std::forward<ITER_PH>(iter_ph)}
+    , iter_bucket_{std::forward<BucketIterType>(iter_bucket)} {
         FindNextElement();
     }
 
@@ -168,17 +141,18 @@ class IteratorNormal : public IteratorBase<PHTREE> {
 
   private:
     void FindNextElement() {
-        while (iter_ph_ != iter_ph_end_) {
+        while (!iter_ph_.IsEnd()) {
             while (iter_bucket_ != iter_ph_->end()) {
                 // We filter only entries here, nodes are filtered elsewhere
-                if (filter_.IsEntryValid(iter_ph_.GetCurrentResult()->GetKey(), *iter_bucket_)) {
+                if (iter_ph_.__Filter().IsEntryValid(
+                        iter_ph_.GetCurrentResult()->GetKey(), *iter_bucket_)) {
                     this->SetCurrentValue(&(*iter_bucket_));
                     return;
                 }
                 ++iter_bucket_;
             }
             ++iter_ph_;
-            if (iter_ph_ != iter_ph_end_) {
+            if (!iter_ph_.IsEnd()) {
                 iter_bucket_ = iter_ph_->begin();
             }
         }
@@ -186,24 +160,17 @@ class IteratorNormal : public IteratorBase<PHTREE> {
         this->SetFinished();
     }
 
-    PhTreeIterEndType& iter_ph_end_;
     ITERATOR_PH iter_ph_;
     BucketIterType iter_bucket_;
-    FILTER filter_;
 };
 
-template <typename ITERATOR_PH, typename PHTREE, typename FILTER>
-class IteratorKnn : public IteratorNormal<ITERATOR_PH, PHTREE, FILTER> {
-    using BucketIterType = typename PHTREE::BucketIterType;
-    using PhTreeIterEndType = typename PHTREE::EndType;
-
+template <typename ITERATOR_PH, typename PHTREE>
+class IteratorKnn : public IteratorNormal<ITERATOR_PH, PHTREE> {
   public:
-    IteratorKnn(
-        const PhTreeIterEndType& iter_ph_end,
-        const ITERATOR_PH iter_ph,
-        BucketIterType iter_bucket,
-        const FILTER filter) noexcept
-    : IteratorNormal<ITERATOR_PH, PHTREE, FILTER>(iter_ph_end, iter_ph, iter_bucket, filter) {}
+    template <typename BucketIterType>
+    IteratorKnn(ITERATOR_PH iter_ph, BucketIterType&& iter_bucket) noexcept
+    : IteratorNormal<ITERATOR_PH, PHTREE>(
+          std::forward<ITERATOR_PH>(iter_ph), std::forward<BucketIterType>(iter_bucket)) {}
 
     [[nodiscard]] double distance() const noexcept {
         return this->GetIteratorOfPhTree().distance();
@@ -223,20 +190,28 @@ template <
     bool POINT_KEYS = true,
     typename DEFAULT_QUERY_TYPE = QueryPoint>
 class PhTreeMultiMap {
-    friend PhTreeDebugHelper;
     using KeyInternal = typename CONVERTER::KeyInternal;
-    using QueryBox = typename CONVERTER::QueryBoxExternal;
     using Key = typename CONVERTER::KeyExternal;
     static constexpr dimension_t DimInternal = CONVERTER::DimInternal;
     using PHTREE = PhTreeMultiMap<DIM, T, CONVERTER, BUCKET, POINT_KEYS, DEFAULT_QUERY_TYPE>;
-
-  public:
     using ValueType = T;
     using BucketIterType = decltype(std::declval<BUCKET>().begin());
-    using EndType = decltype(std::declval<v16::PhTreeV16<DIM, BUCKET, CONVERTER>>().end());
+    using EndType = decltype(std::declval<v16::PhTreeV16<DimInternal, BUCKET, CONVERTER>>().end());
+
+    friend PhTreeDebugHelper;
+    friend IteratorBase<PHTREE>;
+
+  public:
+    using QueryBox = typename CONVERTER::QueryBoxExternal;
 
     explicit PhTreeMultiMap(CONVERTER converter = CONVERTER())
-    : tree_{converter}, converter_{converter}, size_{0} {}
+    : tree_{&converter_}, converter_{converter}, size_{0} {}
+
+    PhTreeMultiMap(const PhTreeMultiMap& other) = delete;
+    PhTreeMultiMap& operator=(const PhTreeMultiMap& other) = delete;
+    PhTreeMultiMap(PhTreeMultiMap&& other) noexcept = default;
+    PhTreeMultiMap& operator=(PhTreeMultiMap&& other) noexcept = default;
+    ~PhTreeMultiMap() noexcept = default;
 
     /*
      *  Attempts to build and insert a key and a value into the tree.
@@ -343,7 +318,7 @@ class PhTreeMultiMap {
     auto find(const Key& key) const {
         auto outer_iter = tree_.find(converter_.pre(key));
         if (outer_iter == tree_.end()) {
-            return CreateIterator(tree_.end(), bucket_dummy_end_);
+            return CreateIterator(outer_iter);
         }
         auto bucket_iter = outer_iter.second().begin();
         return CreateIterator(outer_iter, bucket_iter);
@@ -360,7 +335,7 @@ class PhTreeMultiMap {
     auto find(const Key& key, const T& value) const {
         auto outer_iter = tree_.find(converter_.pre(key));
         if (outer_iter == tree_.end()) {
-            return CreateIterator(tree_.end(), bucket_dummy_end_);
+            return CreateIterator(outer_iter);
         }
         auto bucket_iter = outer_iter.second().find(value);
         return CreateIterator(outer_iter, bucket_iter);
@@ -475,7 +450,7 @@ class PhTreeMultiMap {
 
     /*
      * Iterates over all entries in the tree. The optional filter allows filtering entries and nodes
-     * (=sub-trees) before returning / traversing them. By default all entries are returned. Filter
+     * (=sub-trees) before returning / traversing them. By default, all entries are returned. Filter
      * functions must implement the same signature as the default 'FilterNoOp'.
      *
      * @param callback The callback function to be called for every entry that matches the filter.
@@ -485,10 +460,12 @@ class PhTreeMultiMap {
      * follow the signature of the default 'FilterNoOp`.
      * The default 'FilterNoOp` filter matches all entries.
      */
-    template <typename CALLBACK_FN, typename FILTER = FilterNoOp>
-    void for_each(CALLBACK_FN& callback, FILTER filter = FILTER()) const {
-        CallbackWrapper<CALLBACK_FN, FILTER> inner_callback{callback, filter, converter_};
-        tree_.for_each(inner_callback, WrapFilter(filter));
+    template <typename CALLBACK, typename FILTER = FilterNoOp>
+    void for_each(CALLBACK&& callback, FILTER&& filter = FILTER()) const {
+        tree_.for_each(
+            NoOpCallback(),
+            WrapCallbackFilter<CALLBACK, FILTER>{
+                std::forward<CALLBACK>(callback), std::forward<FILTER>(filter), converter_});
     }
 
     /*
@@ -505,35 +482,37 @@ class PhTreeMultiMap {
      * The default 'FilterNoOp` filter matches all entries.
      */
     template <
-        typename CALLBACK_FN,
+        typename CALLBACK,
         typename FILTER = FilterNoOp,
         typename QUERY_TYPE = DEFAULT_QUERY_TYPE>
     void for_each(
         QueryBox query_box,
-        CALLBACK_FN& callback,
-        const FILTER& filter = FILTER(),
+        CALLBACK&& callback,
+        FILTER&& filter = FILTER(),
         QUERY_TYPE query_type = QUERY_TYPE()) const {
-        CallbackWrapper<CALLBACK_FN, FILTER> inner_callback{callback, filter, converter_};
         tree_.for_each(
-            query_type(converter_.pre_query(query_box)), inner_callback, WrapFilter(filter));
+            query_type(converter_.pre_query(query_box)),
+            NoOpCallback(),
+            WrapCallbackFilter<CALLBACK, FILTER>(
+                std::forward<CALLBACK>(callback), std::forward<FILTER>(filter), converter_));
     }
 
     /*
      * Iterates over all entries in the tree. The optional filter allows filtering entries and nodes
-     * (=sub-trees) before returning / traversing them. By default all entries are returned. Filter
+     * (=sub-trees) before returning / traversing them. By default, all entries are returned. Filter
      * functions must implement the same signature as the default 'FilterNoOp'.
      *
      * @return an iterator over all (filtered) entries in the tree,
      */
     template <typename FILTER = FilterNoOp>
-    auto begin(FILTER filter = FILTER()) const {
-        auto outer_iter = tree_.begin(WrapFilter(filter));
+    auto begin(FILTER&& filter = FILTER()) const {
+        auto outer_iter = tree_.begin(WrapFilter(std::forward<FILTER>(filter)));
         if (outer_iter == tree_.end()) {
-            return CreateIterator(outer_iter, bucket_dummy_end_, filter);
+            return CreateIterator(outer_iter);
         }
         auto bucket_iter = outer_iter.second().begin();
         assert(bucket_iter != outer_iter.second().end());
-        return CreateIterator(outer_iter, bucket_iter, filter);
+        return CreateIterator(outer_iter, bucket_iter);
     }
 
     /*
@@ -549,16 +528,16 @@ class PhTreeMultiMap {
     template <typename FILTER = FilterNoOp, typename QUERY_TYPE = DEFAULT_QUERY_TYPE>
     auto begin_query(
         const QueryBox& query_box,
-        FILTER filter = FILTER(),
+        FILTER&& filter = FILTER(),
         QUERY_TYPE query_type = QUERY_TYPE()) const {
-        auto outer_iter =
-            tree_.begin_query(query_type(converter_.pre_query(query_box)), WrapFilter(filter));
+        auto outer_iter = tree_.begin_query(
+            query_type(converter_.pre_query(query_box)), WrapFilter(std::forward<FILTER>(filter)));
         if (outer_iter == tree_.end()) {
-            return CreateIterator(outer_iter, bucket_dummy_end_, filter);
+            return CreateIterator(outer_iter, BucketIterType{});
         }
         auto bucket_iter = outer_iter.second().begin();
         assert(bucket_iter != outer_iter.second().end());
-        return CreateIterator(outer_iter, bucket_iter, filter);
+        return CreateIterator(outer_iter, bucket_iter);
     }
 
     /*
@@ -583,25 +562,28 @@ class PhTreeMultiMap {
     auto begin_knn_query(
         size_t min_results,
         const Key& center,
-        DISTANCE distance_function = DISTANCE(),
-        FILTER filter = FILTER()) const {
+        DISTANCE&& distance_function = DISTANCE(),
+        FILTER&& filter = FILTER()) const {
         // We use pre() instead of pre_query() here because, strictly speaking, we want to
         // find the nearest neighbors of a (fictional) key, which may as well be a box.
         auto outer_iter = tree_.begin_knn_query(
-            min_results, converter_.pre(center), distance_function, WrapFilter(filter));
+            min_results,
+            converter_.pre(center),
+            std::forward<DISTANCE>(distance_function),
+            WrapFilter(std::forward<FILTER>(filter)));
         if (outer_iter == tree_.end()) {
-            return CreateIteratorKnn(outer_iter, bucket_dummy_end_, filter);
+            return CreateIteratorKnn(outer_iter);
         }
         auto bucket_iter = outer_iter.second().begin();
         assert(bucket_iter != outer_iter.second().end());
-        return CreateIteratorKnn(outer_iter, bucket_iter, filter);
+        return CreateIteratorKnn(outer_iter, bucket_iter);
     }
 
     /*
      * @return An iterator representing the tree's 'end'.
      */
-    const auto& end() const {
-        return the_end_;
+    auto end() const {
+        return IteratorNormal<EndType, PHTREE>{};
     }
 
     /*
@@ -639,64 +621,92 @@ class PhTreeMultiMap {
         return tree_;
     }
 
-    template <typename OUTER_ITER, typename FILTER = FilterNoOp>
-    auto CreateIterator(
-        OUTER_ITER outer_iter, BucketIterType bucket_iter, FILTER filter = FILTER()) const {
-        return IteratorNormal<OUTER_ITER, PHTREE, FILTER>(
-            tree_.end(), std::move(outer_iter), std::move(bucket_iter), filter);
+    template <typename OUTER_ITER, typename INNER_ITER = BucketIterType>
+    auto CreateIterator(OUTER_ITER outer_iter, INNER_ITER&& bucket_iter = INNER_ITER{}) const {
+        return IteratorNormal<OUTER_ITER, PHTREE>(
+            std::forward<OUTER_ITER>(outer_iter), std::forward<INNER_ITER>(bucket_iter));
     }
 
-    template <typename OUTER_ITER, typename FILTER = FilterNoOp>
-    auto CreateIteratorKnn(
-        OUTER_ITER outer_iter, BucketIterType bucket_iter, FILTER filter = FILTER()) const {
-        return IteratorKnn<OUTER_ITER, PHTREE, FILTER>(
-            tree_.end(), std::move(outer_iter), std::move(bucket_iter), filter);
+    template <typename OUTER_ITER, typename INNER_ITER = BucketIterType>
+    auto CreateIteratorKnn(OUTER_ITER outer_iter, INNER_ITER&& bucket_iter = INNER_ITER{}) const {
+        return IteratorKnn<OUTER_ITER, PHTREE>(
+            std::forward<OUTER_ITER>(outer_iter), std::forward<INNER_ITER>(bucket_iter));
     }
 
+    /*
+     * We have two iterators, one that traverses the PH-Tree and one that traverses the
+     * bucket. We need two IsEntryValid() for these two iterators.
+     * The IsEntryValid() for the PH-Tree iterator always returns true (we do not support
+     * checking buckets at the moment).
+     * The IsEntryValid() for the bucket iterator forwards the call to the user defined
+     * IsEntryValid() for every entry in the bucket.
+     */
     template <typename FILTER>
-    static auto WrapFilter(FILTER filter) {
+    static auto WrapFilter(FILTER&& filter) {
+        struct FilterWrapper {
+            [[nodiscard]] constexpr bool IsEntryValid(const KeyInternal&, const BUCKET&) {
+                // This filter is used in the PH-Tree iterator.
+                return true;
+            }
+            [[nodiscard]] constexpr bool IsEntryValid(const KeyInternal& key, const T& value) {
+                // This filter is used in the PH-Tree multimap iterator (bucket iterator).
+                return filter_.IsEntryValid(key, value);
+            }
+            [[nodiscard]] constexpr bool IsNodeValid(
+                const KeyInternal& prefix, int bits_to_ignore) {
+                return filter_.IsNodeValid(prefix, bits_to_ignore);
+            }
+            FILTER filter_;
+        };
+        return FilterWrapper{std::forward<FILTER>(filter)};
+    }
+
+    /*
+     * This wrapper wraps the Filter and Callback such that the callback is called for every
+     * bucket entry that matches the user defined IsEntryValid().
+     */
+    template <typename CALLBACK, typename FILTER>
+    class WrapCallbackFilter {
+      public:
         // We always have two iterators, one that traverses the PH-Tree and one that traverses the
         // bucket. Using the FilterWrapper we create a new Filter for the PH-Tree iterator. This new
         // filter checks only if nodes are valid. It cannot check whether buckets are valid.
         // The original filter is then used when we iterate over the entries of a bucket. At this
         // point, we do not need to check IsNodeValid anymore for each entry (see `IteratorNormal`).
-        struct FilterWrapper {
-            [[nodiscard]] constexpr bool IsEntryValid(const KeyInternal&, const BUCKET&) const {
-                // This filter is checked in the Iterator.
-                return true;
-            }
-            [[nodiscard]] constexpr bool IsNodeValid(
-                const KeyInternal& prefix, int bits_to_ignore) const {
-                return filter_.IsNodeValid(prefix, bits_to_ignore);
-            }
-            FILTER filter_;
-        };
-        return FilterWrapper{filter};
-    }
+        template <typename CB, typename F>
+        WrapCallbackFilter(CB&& callback, F&& filter, const CONVERTER& converter)
+        : callback_{std::forward<CB>(callback)}
+        , filter_{std::forward<F>(filter)}
+        , converter_{converter} {}
 
-    template <typename CALLBACK_FN, typename FILTER>
-    struct CallbackWrapper {
-        /*
-         * The CallbackWrapper ensures that we call the callback on each entry of the bucket.
-         * The vanilla PH-Tree call it only on the bucket itself.
-         */
-        void operator()(const Key& key, const BUCKET& bucket) const {
-            auto internal_key = converter_.pre(key);
+        [[nodiscard]] constexpr bool IsEntryValid(
+            const KeyInternal& internal_key, const BUCKET& bucket) {
+            auto key = converter_.post(internal_key);
             for (auto& entry : bucket) {
                 if (filter_.IsEntryValid(internal_key, entry)) {
                     callback_(key, entry);
                 }
             }
+            // Return false. We already called the callback.
+            return false;
         }
-        CALLBACK_FN& callback_;
-        const FILTER filter_;
+
+        [[nodiscard]] constexpr bool IsNodeValid(const KeyInternal& prefix, int bits_to_ignore) {
+            return filter_.IsNodeValid(prefix, bits_to_ignore);
+        }
+
+      private:
+        CALLBACK callback_;
+        FILTER filter_;
         const CONVERTER& converter_;
+    };
+
+    struct NoOpCallback {
+        void operator()(const Key&, const BUCKET&) {}
     };
 
     v16::PhTreeV16<DimInternal, BUCKET, CONVERTER> tree_;
     CONVERTER converter_;
-    IteratorNormal<EndType, PHTREE, FilterNoOp> the_end_{tree_.end()};
-    BucketIterType bucket_dummy_end_;
     size_t size_;
 };
 

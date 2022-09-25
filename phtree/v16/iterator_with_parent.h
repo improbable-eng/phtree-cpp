@@ -23,45 +23,49 @@
 namespace improbable::phtree::v16 {
 
 template <typename T, typename CONVERT>
-class IteratorSimple : public IteratorBase<T, CONVERT> {
+class IteratorWithParent : public IteratorWithFilter<T, CONVERT> {
     static constexpr dimension_t DIM = CONVERT::DimInternal;
     using SCALAR = typename CONVERT::ScalarInternal;
-    using EntryT = typename IteratorBase<T, CONVERT>::EntryT;
+    using EntryT = typename IteratorWithFilter<T, CONVERT>::EntryT;
+    friend PhTreeV16<DIM, T, CONVERT>;
 
   public:
-    explicit IteratorSimple(const CONVERT& converter) : IteratorBase<T, CONVERT>(converter) {
-        this->SetFinished();
-    }
-
-    explicit IteratorSimple(
+    explicit IteratorWithParent(
         const EntryT* current_result,
         const EntryT* current_node,
         const EntryT* parent_node,
-        CONVERT converter)
-    : IteratorBase<T, CONVERT>(converter) {
-        if (current_result) {
-            this->SetCurrentResult(current_result);
-            this->SetCurrentNodeEntry(current_node);
-            this->SetParentNodeEntry(parent_node);
-        } else {
-            this->SetFinished();
-        }
-    }
+        const CONVERT* converter) noexcept
+    : IteratorWithFilter<T, CONVERT>(current_result, converter)
+    , current_node_{current_node}
+    , parent_node_{parent_node} {}
 
-    IteratorSimple& operator++() {
+    IteratorWithParent& operator++() {
         this->SetFinished();
         return *this;
     }
 
-    IteratorSimple operator++(int) {
-        IteratorSimple iterator(*this);
+    IteratorWithParent operator++(int) {
+        IteratorWithParent iterator(*this);
         ++(*this);
         return iterator;
     }
-};
 
-template <typename T, typename CONVERT>
-using IteratorEnd = IteratorSimple<T, CONVERT>;
+  private:
+    /*
+     * The parent entry contains the parent node. The parent node is the node ABOVE the current node
+     * which contains the current entry.
+     */
+    EntryT* GetCurrentNodeEntry() const {
+        return const_cast<EntryT*>(current_node_);
+    }
+
+    const EntryT* GetParentNodeEntry() const {
+        return parent_node_;
+    }
+
+    const EntryT* current_node_;
+    const EntryT* parent_node_;
+};
 
 }  // namespace improbable::phtree::v16
 

@@ -44,29 +44,30 @@ struct CompareEntryDistByDistance {
 }  // namespace
 
 template <typename T, typename CONVERT, typename DISTANCE, typename FILTER>
-class IteratorKnnHS : public IteratorBase<T, CONVERT, FILTER> {
+class IteratorKnnHS : public IteratorWithFilter<T, CONVERT, FILTER> {
     static constexpr dimension_t DIM = CONVERT::DimInternal;
     using KeyExternal = typename CONVERT::KeyExternal;
     using KeyInternal = typename CONVERT::KeyInternal;
     using SCALAR = typename CONVERT::ScalarInternal;
-    using EntryT = typename IteratorBase<T, CONVERT, FILTER>::EntryT;
+    using EntryT = typename IteratorWithFilter<T, CONVERT, FILTER>::EntryT;
     using EntryDistT = EntryDist<DIM, T, SCALAR>;
 
   public:
+    template <typename DIST, typename F>
     explicit IteratorKnnHS(
         const EntryT& root,
         size_t min_results,
         const KeyInternal& center,
-        const CONVERT& converter,
-        DISTANCE dist,
-        FILTER filter)
-    : IteratorBase<T, CONVERT, FILTER>(converter, filter)
+        const CONVERT* converter,
+        DIST&& dist,
+        F&& filter)
+    : IteratorWithFilter<T, CONVERT, F>(converter, std::forward<F>(filter))
     , center_{center}
-    , center_post_{converter.post(center)}
+    , center_post_{converter->post(center)}
     , current_distance_{std::numeric_limits<double>::max()}
     , num_found_results_(0)
     , num_requested_results_(min_results)
-    , distance_(std::move(dist)) {
+    , distance_(std::forward<DIST>(dist)) {
         if (min_results <= 0 || root.GetNode().GetEntryCount() == 0) {
             this->SetFinished();
             return;
@@ -81,12 +82,12 @@ class IteratorKnnHS : public IteratorBase<T, CONVERT, FILTER> {
         return current_distance_;
     }
 
-    IteratorKnnHS& operator++() {
+    IteratorKnnHS& operator++() noexcept {
         FindNextElement();
         return *this;
     }
 
-    IteratorKnnHS operator++(int) {
+    IteratorKnnHS operator++(int) noexcept {
         IteratorKnnHS iterator(*this);
         ++(*this);
         return iterator;
@@ -96,7 +97,7 @@ class IteratorKnnHS : public IteratorBase<T, CONVERT, FILTER> {
     void FindNextElement() {
         while (num_found_results_ < num_requested_results_ && !queue_.empty()) {
             auto& candidate = queue_.top();
-            auto o = candidate.second;
+            auto* o = candidate.second;
             if (!o->IsNode()) {
                 // data entry
                 ++num_found_results_;
@@ -114,8 +115,7 @@ class IteratorKnnHS : public IteratorBase<T, CONVERT, FILTER> {
                     auto& e2 = entry.second;
                     if (this->ApplyFilter(e2)) {
                         if (e2.IsNode()) {
-                            auto& sub = e2.GetNode();
-                            double d = DistanceToNode(e2.GetKey(), sub.GetPostfixLen() + 1);
+                            double d = DistanceToNode(e2.GetKey(), e2.GetNodePostfixLen() + 1);
                             queue_.emplace(d, &e2);
                         } else {
                             double d = distance_(center_post_, this->post(e2.GetKey()));
@@ -129,7 +129,7 @@ class IteratorKnnHS : public IteratorBase<T, CONVERT, FILTER> {
         current_distance_ = std::numeric_limits<double>::max();
     }
 
-    double DistanceToNode(const KeyInternal& prefix, int bits_to_ignore) {
+    double DistanceToNode(const KeyInternal& prefix, std::uint32_t bits_to_ignore) {
         assert(bits_to_ignore < MAX_BIT_WIDTH<SCALAR>);
         SCALAR mask_min = MAX_MASK<SCALAR> << bits_to_ignore;
         SCALAR mask_max = ~mask_min;
@@ -154,8 +154,8 @@ class IteratorKnnHS : public IteratorBase<T, CONVERT, FILTER> {
     double current_distance_;
     std::priority_queue<EntryDistT, std::vector<EntryDistT>, CompareEntryDistByDistance<EntryDistT>>
         queue_;
-    int num_found_results_;
-    int num_requested_results_;
+    size_t num_found_results_;
+    size_t num_requested_results_;
     DISTANCE distance_;
 };
 

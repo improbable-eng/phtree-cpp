@@ -1,4 +1,4 @@
-**Note: for updates please also check the [fork](https://github.com/tzaeschke/phtree-cpp) by the original PH-Tree developer.**
+**This is a fork of [Improbable's PH-tree](https://github.com/improbable-eng/phtree-cpp)**.
 
 # PH-Tree C++
 
@@ -128,9 +128,10 @@ tree.estimate_count(query);
 
 #### Queries
 
-* For-each over all elements: `tree.fore_each(callback);`
+* For-each over all elements: `tree.for_each(callback);`
+  **Note that `for_each` tends to be 10%-20% faster than using an iterator.**
 * Iterator over all elements: `auto iterator = tree.begin();`
-* For-each with box shaped window queries: `tree.fore_each(PhBoxD(min, max), callback);`
+* For-each with box shaped window queries: `tree.for_each(PhBoxD(min, max), callback);`
 * Iterator for box shaped window queries: `auto q = tree.begin_query(PhBoxD(min, max));`
 * Iterator for _k_ nearest neighbor queries: `auto q = tree.begin_knn_query(k, center_point, distance_function);`
 * Custom query shapes, such as spheres: `tree.for_each(callback, FilterSphere(center, radius, tree.converter()));`
@@ -432,7 +433,7 @@ heavily on the actual dataset, usage patterns, hardware, ... .
 
 There are numerous ways to improve performance. The following list gives an overview over the possibilities.
 
-1) **Use `for_each` instead of iterators**. This should improve performance of queries by 5%-10%.
+1) **Use `for_each` instead of iterators**. This should improve performance of queries by 10%-20%.
 
 2) **Use `emplace_hint` if possible**. When updating the position of an entry, the naive way is to use `erase()`
    /`emplace()`. With `emplace_hint`, insertion can avoid navigation to the target node if the insertion coordinate is
