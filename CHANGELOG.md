@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Removed
 - bazel version requirement file `.bazelversion`. [89](https://github.com/tzaeschke/phtree-cpp/issues/89)
 
+### Changed
+- Improved benchmarks for insert and query to use a more compact format. 
+
 ## [1.4.0]
 ### Added
 - Added build features: [#53](https://github.com/tzaeschke/phtree-cpp/issues/53) 
