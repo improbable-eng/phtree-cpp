@@ -11,7 +11,8 @@ This library is C++ / header only.
 
 # PH-Tree C++
 
-The PH-Tree is an ordered index on an n-dimensional space (quad-/oct-/2^n-tree) where each dimension is (by default)
+The [PH-Tree](https://tzaeschke.github.io/phtree-site/) is an ordered index on an n-dimensional space 
+(quad-/oct-/2^n-tree) where each dimension is (by default)
 indexed by a 64bit integer. The index order follows z-order / Morton order. The default implementation is effectively
 a 'map', i.e. *each key is associated with at most one value.*
 Keys are points or boxes in n-dimensional space.
