@@ -1,5 +1,6 @@
 /*
  * Copyright 2020 Improbable Worlds Limited
+ * Copyright 2022 Tilmann Zäschke
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -468,13 +469,14 @@ class PhTreeV16 {
         const PhBox<DIM, ScalarInternal> query_box,
         CALLBACK&& callback,
         FILTER&& filter = FILTER()) const {
+        auto pair = find_starting_node(query_box);
         ForEachHC<T, CONVERT, CALLBACK, FILTER>(
             query_box.min(),
             query_box.max(),
             converter_,
             std::forward<CALLBACK>(callback),
             std::forward<FILTER>(filter))
-            .Traverse(root_);
+            .Traverse(*pair.first, &pair.second);
     }
 
     /*
@@ -501,8 +503,13 @@ class PhTreeV16 {
     template <typename FILTER = FilterNoOp>
     auto begin_query(
         const PhBox<DIM, ScalarInternal>& query_box, FILTER&& filter = FILTER()) const {
+        auto pair = find_starting_node(query_box);
         return IteratorHC<T, CONVERT, FILTER>(
-            root_, query_box.min(), query_box.max(), converter_, std::forward<FILTER>(filter));
+            *pair.first,
+            query_box.min(),
+            query_box.max(),
+            converter_,
+            std::forward<FILTER>(filter));
     }
 
     /*
@@ -571,7 +578,35 @@ class PhTreeV16 {
         return DebugHelperV16(root_, num_entries_);
     }
 
-  private:
+    /*
+     * Motivation: Point queries a la find() are faster than window queries.
+     * Since a window query may have a significant common prefix in their min and max coordinates,
+     * the part with the common prefix can be executed as point query.
+     *
+     * This works if there really is a common prefix, e.g. when querying point data or when
+     * querying box data with QueryInclude. Unfortunately, QueryIntersect queries have +/-0 infinity
+     * in their coordinates, so their never is an overlap.
+     */
+    std::pair<const EntryT*, EntryIteratorC<DIM, EntryT>> find_starting_node(
+        const PhBox<DIM, ScalarInternal>& query_box) const {
+        auto& prefix = query_box.min();
+        bit_width_t max_conflicting_bits = NumberOfDivergingBits(query_box.min(), query_box.max());
+        const EntryT* parent = &root_;
+        if (max_conflicting_bits > root_.GetNodePostfixLen()) {
+            // Abort early if we have no shared prefix in the query
+            return {&root_, root_.GetNode().Entries().end()};
+        }
+        EntryIteratorC<DIM, EntryT> entry_iter =
+            root_.GetNode().FindPrefix(prefix, max_conflicting_bits, root_.GetNodePostfixLen());
+        while (entry_iter != parent->GetNode().Entries().end() && entry_iter->second.IsNode() &&
+               entry_iter->second.GetNodePostfixLen() >= max_conflicting_bits) {
+            parent = &entry_iter->second;
+            entry_iter = parent->GetNode().FindPrefix(
+                prefix, max_conflicting_bits, parent->GetNodePostfixLen());
+        }
+        return {parent, entry_iter};
+    }
+
     size_t num_entries_;
     // Contract: root_ contains a Node with 0 or more entries. The root node is the only Node
     // that is allowed to have less than two entries.

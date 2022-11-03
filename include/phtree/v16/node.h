@@ -1,5 +1,6 @@
 /*
  * Copyright 2020 Improbable Worlds Limited
+ * Copyright 2022 Tilmann Zäschke
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,8 +18,8 @@
 #ifndef PHTREE_V16_NODE_H
 #define PHTREE_V16_NODE_H
 
-#include "phtree/common/common.h"
 #include "entry.h"
+#include "phtree/common/common.h"
 #include "phtree_v16.h"
 #include <map>
 
@@ -137,15 +138,32 @@ class Node {
      */
     const EntryT* Find(const KeyT& key, bit_width_t postfix_len) const {
         hc_pos_t hc_pos = CalcPosInArray(key, postfix_len);
-        const auto& entry = entries_.find(hc_pos);
-        if (entry != entries_.end() && DoesEntryMatch(entry->second, key, postfix_len)) {
-            return &entry->second;
+        const auto iter = entries_.find(hc_pos);
+        if (iter != entries_.end() && DoesEntryMatch(iter->second, key, postfix_len)) {
+            return &iter->second;
         }
         return nullptr;
     }
 
     EntryT* Find(const KeyT& key, bit_width_t postfix_len) {
         return const_cast<EntryT*>(static_cast<const Node*>(this)->Find(key, postfix_len));
+    }
+
+    EntryIteratorC<DIM, EntryT> FindPrefix(
+        const KeyT& prefix, bit_width_t prefix_post_len, bit_width_t node_postfix_len) const {
+        assert(prefix_post_len <= node_postfix_len);
+        hc_pos_t hc_pos = CalcPosInArray(prefix, node_postfix_len);
+        const auto iter = entries_.find(hc_pos);
+        if (iter == entries_.end() || iter->second.IsValue() ||
+            iter->second.GetNodePostfixLen() < prefix_post_len) {
+            // We compare the infix only if it lies fully within the prefix.
+            return entries_.end();
+        }
+
+        if (DoesEntryMatch(iter->second, prefix, node_postfix_len)) {
+            return {iter};
+        }
+        return entries_.end();
     }
 
     /*

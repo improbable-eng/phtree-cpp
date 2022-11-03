@@ -1004,6 +1004,25 @@ TEST(PhTreeTest, TestWindowForEachManyMoving) {
     ASSERT_GE(5000, nn);
 }
 
+TEST(PhTreeTest, TestWindowForEachExact) {
+    size_t N = 1000;
+    const dimension_t dim = 3;
+    TestTree<dim, Id> tree;
+    std::vector<TestPoint<dim>> points;
+    populate(tree, points, N);
+
+    size_t nn = 0;
+    for (size_t i = 0; i < N; i++) {
+        size_t n = 0;
+        tree.for_each({points[i], points[i]}, [&](TestPoint<dim>, Id&) {
+            ++n;
+            ++nn;
+        });
+        ASSERT_EQ(1, n);
+    }
+    ASSERT_EQ(N, nn);
+}
+
 TEST(PhTreeTest, TestWindowQueryIterators) {
     size_t N = 1000;
     const dimension_t dim = 3;
