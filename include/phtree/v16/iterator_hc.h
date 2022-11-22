@@ -17,8 +17,8 @@
 #ifndef PHTREE_V16_ITERATOR_HC_H
 #define PHTREE_V16_ITERATOR_HC_H
 
-#include "phtree/common/common.h"
 #include "iterator_with_parent.h"
+#include "phtree/common/common.h"
 
 namespace improbable::phtree::v16 {
 
@@ -134,6 +134,7 @@ class NodeIterator {
     using KeyT = PhPoint<DIM, SCALAR>;
     using EntryT = Entry<DIM, T, SCALAR>;
     using EntriesT = EntryMap<DIM, EntryT>;
+    using hc_pos_t = hc_pos_dim_t<DIM>;
 
   public:
     NodeIterator() : iter_{}, entries_{nullptr}, mask_lower_{0}, mask_upper_{0}, postfix_len_{0} {}
@@ -210,25 +211,19 @@ class NodeIterator {
         // query higher ||                                       NO                  YES
         //
         assert(postfix_len < MAX_BIT_WIDTH<SCALAR>);
-        bit_mask_t<SCALAR> maskHcBit = bit_mask_t<SCALAR>(1) << postfix_len;
-        bit_mask_t<SCALAR> maskVT = MAX_MASK<SCALAR> << postfix_len;
         hc_pos_t lower_limit = 0;
         hc_pos_t upper_limit = 0;
-        constexpr hc_pos_t ONE = 1;
         // to prevent problems with signed long when using 64 bit
         if (postfix_len < MAX_BIT_WIDTH<SCALAR> - 1) {
             for (dimension_t i = 0; i < DIM; ++i) {
                 lower_limit <<= 1;
+                //==> set to 1 if lower value should not be queried
+                lower_limit |= range_min[i] >= prefix[i];
+            }
+            for (dimension_t i = 0; i < DIM; ++i) {
                 upper_limit <<= 1;
-                SCALAR nodeBisection = (prefix[i] | maskHcBit) & maskVT;
-                if (range_min[i] >= nodeBisection) {
-                    //==> set to 1 if lower value should not be queried
-                    lower_limit |= ONE;
-                }
-                if (range_max[i] >= nodeBisection) {
-                    // Leave 0 if higher value should not be queried.
-                    upper_limit |= ONE;
-                }
+                // Leave 0 if higher value should not be queried.
+                upper_limit |= range_max[i] >= prefix[i];
             }
         } else {
             // special treatment for signed longs
@@ -236,22 +231,19 @@ class NodeIterator {
             // LOWER value, opposed to indicating a HIGHER value as in the remaining 63 bits.
             // The hypercube assumes that a leading '0' indicates a lower value.
             // Solution: We leave HC as it is.
-
+            for (dimension_t i = 0; i < DIM; ++i) {
+                upper_limit <<= 1;
+                // If minimum is positive, we don't need the search negative values
+                //==> set upper_limit to 0, prevent searching values starting with '1'.
+                upper_limit |= range_min[i] < 0;
+            }
             for (dimension_t i = 0; i < DIM; ++i) {
                 lower_limit <<= 1;
-                upper_limit <<= 1;
-                if (range_min[i] < 0) {
-                    // If minimum is positive, we don't need the search negative values
-                    //==> set upper_limit to 0, prevent searching values starting with '1'.
-                    upper_limit |= ONE;
-                }
-                if (range_max[i] < 0) {
-                    // Leave 0 if higher value should not be queried
-                    // If maximum is negative, we do not need to search positive values
-                    //(starting with '0').
-                    //--> lower_limit = '1'
-                    lower_limit |= ONE;
-                }
+                // Leave 0 if higher value should not be queried
+                // If maximum is negative, we do not need to search positive values
+                //(starting with '0').
+                //--> lower_limit = '1'
+                lower_limit |= range_max[i] < 0;
             }
         }
         mask_lower_ = lower_limit;

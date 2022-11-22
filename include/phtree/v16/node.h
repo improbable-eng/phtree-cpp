@@ -33,7 +33,7 @@ namespace improbable::phtree::v16 {
  * - `array_map` is the fastest, but has O(2^DIM) space complexity. This can be very wasteful
  *   because many nodes may have only 2 entries.
  *   Also, iteration depends on some bit operations and is also O(DIM) per step if the CPU/compiler
- *   does not support CTZ (count trailing bits).
+ *   does not support CTZ (count trailing zeroes).
  * - `sparse_map` is slower, but requires only O(n) memory (n = number of entries/children).
  *   However, insertion/deletion is O(n), i.e. O(2^DIM) time complexity in the worst case.
  * - 'b_plus_tree_map` is the least efficient for small node sizes but scales best with larger
@@ -42,10 +42,11 @@ namespace improbable::phtree::v16 {
 template <dimension_t DIM, typename Entry>
 using EntryMap = typename std::conditional<
     DIM <= 3,
-    array_map<Entry, (hc_pos_t(1) << DIM)>,
-    typename std::
-        conditional<DIM <= 8, sparse_map<Entry>, b_plus_tree_map<Entry, (hc_pos_t(1) << DIM)>>::
-            type>::type;
+    array_map<Entry, (uint64_t(1) << DIM)>,
+    typename std::conditional<
+        DIM <= 8,
+        sparse_map<hc_pos_dim_t<DIM>, Entry>,
+        b_plus_tree_map<Entry, (uint64_t(1) << DIM)>>::type>::type;
 
 template <dimension_t DIM, typename Entry>
 using EntryIterator = decltype(EntryMap<DIM, Entry>().begin());
@@ -75,6 +76,7 @@ template <dimension_t DIM, typename T, typename SCALAR>
 class Node {
     using KeyT = PhPoint<DIM, SCALAR>;
     using EntryT = Entry<DIM, T, SCALAR>;
+    using hc_pos_t = hc_pos_64_t;
 
   public:
     Node() : entries_{} {}
@@ -251,6 +253,20 @@ class Node {
                 ++num_entries_local;
             }
         }
+
+        // Check node center
+        auto post_len = current_entry.GetNodePostfixLen();
+        if (post_len == MAX_BIT_WIDTH<SCALAR> - 1) {
+            for (auto d : current_entry.GetKey()) {
+                assert(d == 0);
+            }
+        } else {
+            for (auto d : current_entry.GetKey()) {
+                assert(((d >> post_len) & 0x1) == 1 && "Last bit of node center must be `1`");
+                assert(((d >> post_len) << post_len) == d && "postlen bits must all be `0`");
+            }
+        }
+
         return num_entries_local + num_entries_children;
     }
 
