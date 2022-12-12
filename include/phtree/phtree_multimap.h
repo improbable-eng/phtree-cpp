@@ -414,17 +414,33 @@ class PhTreeMultiMap {
      * @param new_key The new position
      * @param value The value that needs to be relocated. The relocate() method used the value's
      *              '==' operator to identify the entry that should be moved.
-     * @param count_equals This setting toggles whether a relocate() between two identical keys
-     *              should be counted as 'success' and return '1'. The function may still return '0'
-     *              in case the keys are not in the index.
-     *              Background: the intuitively correct behavior is to return '1' for identical
-     *              (exising) keys. However, avoiding this check can considerably speed up
-     *              relocate() calls, especially when using a ConverterMultiply.
+     * @param verify_exists This setting toggles whether a relocate() between two identical keys
+     *              should verify whether the key actually exist before return '1'.
+     *              If set to 'false', this function will return '1' if the keys are identical,
+     *              without checking whether the keys actually exist. Avoiding this check can
+     *              considerably speed up relocate() calls, especially when using a
+     *              ConverterMultiply.
      *
      * @return '1' if a value was found and reinserted, otherwise '0'.
      */
     template <typename T2>
-    size_t relocate(const Key& old_key, const Key& new_key, T2&& value, bool count_equals = true) {
+    size_t relocate(const Key& old_key, const Key& new_key, T2&& value, bool verify_exists = true) {
+        auto fn = [&value](BUCKET& src, BUCKET& dst) -> size_t {
+            auto it = src.find(value);
+            if (it != src.end() && dst.emplace(std::move(*it)).second) {
+                src.erase(it);
+                return 1;
+            }
+            return 0;
+        };
+        auto count_fn = [&value](BUCKET& src) -> size_t { return src.find(value) != src.end(); };
+        return tree_._relocate_mm(
+            converter_.pre(old_key), converter_.pre(new_key), verify_exists, fn, count_fn);
+    }
+
+    template <typename T2>
+    [[deprecated]] size_t relocate2(
+        const Key& old_key, const Key& new_key, T2&& value, bool count_equals = true) {
         auto pair = tree_._find_or_create_two_mm(
             converter_.pre(old_key), converter_.pre(new_key), count_equals);
         auto& iter_old = pair.first;
@@ -478,17 +494,48 @@ class PhTreeMultiMap {
      * @param new_key The new position
      * @param predicate The predicate that is used for every value at position old_key to evaluate
      *             whether it should be relocated to new_key.
-     * @param count_equals This setting toggles whether a relocate() between two identical keys
-     *              should be counted as 'success' and return '1'. The function may still return '0'
-     *              in case the keys are not in the index.
-     *              Background: the intuitively correct behavior is to return '1' for identical
-     *              (exising) keys. However, avoiding this check can considerably speed up
-     *              relocate() calls, especially when using a ConverterMultiply.
+     * @param verify_exists This setting toggles whether a relocate() between two identical keys
+     *              should verify whether the key actually exist before return '1'.
+     *              If set to 'false', this function will return '1' if the keys are identical,
+     *              without checking whether the keys actually exist. Avoiding this check can
+     *              considerably speed up relocate() calls, especially when using a
+     *              ConverterMultiply.
      *
      * @return the number of values that were relocated.
      */
     template <typename PREDICATE>
     size_t relocate_if(
+        const Key& old_key, const Key& new_key, PREDICATE&& pred_fn, bool verify_exists = true) {
+        auto fn = [&pred_fn](BUCKET& src, BUCKET& dst) -> size_t {
+            size_t result = 0;
+            auto iter_src = src.begin();
+            while (iter_src != src.end()) {
+                if (pred_fn(*iter_src) && dst.emplace(std::move(*iter_src)).second) {
+                    iter_src = src.erase(iter_src);
+                    ++result;
+                } else {
+                    ++iter_src;
+                }
+            }
+            return result;
+        };
+        auto count_fn = [&pred_fn](BUCKET& src) -> size_t {
+            size_t result = 0;
+            auto iter_src = src.begin();
+            while (iter_src != src.end()) {
+                if (pred_fn(*iter_src)) {
+                    ++result;
+                }
+                ++iter_src;
+            }
+            return result;
+        };
+        return tree_._relocate_mm(
+            converter_.pre(old_key), converter_.pre(new_key), verify_exists, fn, count_fn);
+    }
+
+    template <typename PREDICATE>
+    [[deprecated]] size_t relocate_if2(
         const Key& old_key, const Key& new_key, PREDICATE&& predicate, bool count_equals = true) {
         auto pair = tree_._find_or_create_two_mm(
             converter_.pre(old_key), converter_.pre(new_key), count_equals);
