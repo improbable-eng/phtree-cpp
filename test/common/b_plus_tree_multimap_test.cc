@@ -376,3 +376,73 @@ TEST(PhTreeBptMulitmapTest, SmokeTestWithEraseInterval) {
     SmokeTestWithErase(true, false);
     SmokeTestWithErase(true, true);
 }
+
+TEST(PhTreeBptMulitmapTest, SmokeTestUpdateByIterator) {
+    // This tests repeated erase()/insert()
+    const int N = 200;
+    std::default_random_engine random_engine{0};
+    std::uniform_int_distribution<> cube_distribution(0, N / 20);
+
+    using Key = size_t;
+    using Value = size_t;
+    b_plus_tree_multimap<Key, Value> test_map{};
+    std::multimap<Key, Value> reference_map{};
+    std::vector<std::pair<Value, Key>> reverse_map{};
+    populate(N, test_map, reference_map, reverse_map, random_engine);
+    for (int i = 0; i < 100; i++) {
+        std::shuffle(reverse_map.begin(), reverse_map.end(), random_engine);
+        for (auto& reverse_pair : reverse_map) {
+            auto key = reverse_pair.second;
+            auto val = reverse_pair.first;
+
+            // reference map
+            auto ref_iter = reference_map.find(key);
+            while (ref_iter != reference_map.end() && ref_iter->second != val) {
+                ++ref_iter;
+            }
+            ASSERT_NE(ref_iter, reference_map.end());
+            reference_map.erase(ref_iter);
+
+            // tested map
+            auto it = test_map.find(key);
+            ASSERT_NE(it, test_map.end());
+            while (it->second != val) {
+                ++it;
+            }
+            auto next = it;
+            // verify return value
+            ++next;
+            auto is_last = next == test_map.end();
+            auto next_val = is_last ? -1 : next->first;
+            auto result = test_map.erase(it);
+            if (is_last) {
+                ASSERT_EQ(test_map.end(), result);
+            } else {
+                ASSERT_NE(test_map.end(), result);
+                ASSERT_EQ(next_val, result->first);
+            }
+
+            test_map._check();
+
+            // insert again
+            reverse_pair.second = cube_distribution(random_engine);
+            test_map.emplace(reverse_pair.second, reverse_pair.first);
+            reference_map.emplace(reverse_pair.second, reverse_pair.first);
+
+            test_map._check();
+
+            for (auto& entry : reference_map) {
+                const Key& vRef = entry.first;
+                Key vMap = test_map.find(vRef)->first;
+                ASSERT_EQ(vMap, vRef);
+            }
+            for (auto& entry : test_map) {
+                Key v = entry.first;
+                const Key& vRef = reference_map.find(v)->first;
+                Key vMap = test_map.find(v)->first;
+                ASSERT_EQ(vMap, vRef);
+            }
+            ASSERT_EQ(test_map.size(), reference_map.size());
+        }
+    }
+}
