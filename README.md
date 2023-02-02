@@ -14,7 +14,8 @@ This library is C++ / header only.
 The [PH-Tree](https://tzaeschke.github.io/phtree-site/) is an ordered index on an n-dimensional space 
 (quad-/oct-/2^n-tree) where each dimension is (by default)
 indexed by a 64bit integer. The index order follows z-order / Morton order. The default implementation is effectively
-a 'map', i.e. *each key is associated with at most one value.*
+a 'map', i.e. *each key is associated with at most one value.* For convenience there is also a multimap implementations
+that supports multiple entries with identical keys.
 Keys are points or boxes in n-dimensional space.
 
 Two strengths of PH-Trees are fast insert/removal operations and scalability with large datasets. It also provides fast
@@ -80,7 +81,9 @@ The **PH-Tree Map** has five predefined tree types:
 The **PH-Tree MultiMap** has three predefined tree types:
 
 - `PhTreeMultiMapD` uses `PhPointD` keys, which are vectors/points of 64 bit `double`.
+- `PhTreeMultiMapF` uses `PhPointF` keys, which are vectors/points of 32 bit `float`.
 - `PhTreeMultiMapBoxD` uses `PhBoxD` keys, which consist of two `PhPointD` that define an axis-aligned rectangle/box.
+- `PhTreeMultiMapBoxF` uses `PhBoxF` keys, which consist of two `PhPointF` that define an axis-aligned rectangle/box.
 - `PhTreeMultiMap` uses `PhPoint` keys, which are vectors/points of `std::int64`
 
 Additional key types and tree types can be defined easily analogous to the types above, please refer to the declaration of the 
