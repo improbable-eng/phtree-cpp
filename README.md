@@ -22,7 +22,7 @@ Two strengths of PH-Trees are fast insert/removal operations and scalability wit
 window queries and _k_-nearest neighbor queries, and it scales well with higher dimensions. The default implementation
 is limited to 63 dimensions.
 
-The API ist mostly analogous to STL's `std::map` and `std::multimap, see function descriptions for details.
+The API ist mostly analogous to STL's `std::map` and `std::multimap`, see function descriptions for details.
 
 Theoretical background is listed [here](#theory).
 
