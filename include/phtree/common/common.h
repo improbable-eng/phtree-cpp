@@ -64,7 +64,7 @@ static hc_pos_64_t CalcPosInArray(const PhPoint<DIM, SCALAR>& valSet, bit_width_
         // set pos-bit if bit is set in value
         pos |= (valMask & valSet[i]) >> postfix_len;
     }
-    return pos;
+    return static_cast<hc_pos_dim_t<DIM>>(pos);
 }
 
 template <dimension_t DIM, typename SCALAR>

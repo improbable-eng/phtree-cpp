@@ -77,14 +77,14 @@ template <dimension_t DIM, typename T, typename SCALAR>
 class Node {
     using KeyT = PhPoint<DIM, SCALAR>;
     using EntryT = Entry<DIM, T, SCALAR>;
-    using hc_pos_t = hc_pos_64_t;
+    using hc_pos_t = hc_pos_dim_t<DIM>;
 
   public:
     Node() : entries_{} {}
 
     // Nodes should never be copied!
     Node(const Node&) = delete;
-    Node(Node&&) = default;
+    Node(Node&&) noexcept = default;
     Node& operator=(const Node&) = delete;
     Node& operator=(Node&&) = delete;
 
