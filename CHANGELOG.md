@@ -5,7 +5,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+Nothing yet.
 
+## [1.5.0] - 2023-02-09
 ### Added
 - Added B+tree multimap for internal (future) use. [#93](https://github.com/tzaeschke/phtree-cpp/issues/93)
 - Added some fuzz tests. Not that these require manual compilation, see [fuzzer/README.md](fuzzer/README.md).
@@ -42,6 +44,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ###
 - Fixed copy cstr/assignment of B+trees, see also #102. [#119](https://github.com/tzaeschke/phtree-cpp/pull/119) 
+- Fixed numerous warnings when compiling with MSVC. [#120](https://github.com/tzaeschke/phtree-cpp/issues/120)
 
 ## [1.4.0] - 2022-09-09
 ### Added
@@ -199,7 +202,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Nothing.
 
 
-[Unreleased]: https://github.com/improbable-eng/phtree-cpp/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/improbable-eng/phtree-cpp/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/improbable-eng/phtree-cpp/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/improbable-eng/phtree-cpp/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/improbable-eng/phtree-cpp/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/improbable-eng/phtree-cpp/compare/v1.1.0...v1.2.0
