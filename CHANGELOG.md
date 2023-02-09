@@ -44,6 +44,7 @@ Nothing yet.
 
 ###
 - Fixed copy cstr/assignment of B+trees, see also #102. [#119](https://github.com/tzaeschke/phtree-cpp/pull/119) 
+- Fixed numerous warnings when compiling with MSVC. [#120](https://github.com/tzaeschke/phtree-cpp/issues/120)
 
 ## [1.4.0] - 2022-09-09
 ### Added
