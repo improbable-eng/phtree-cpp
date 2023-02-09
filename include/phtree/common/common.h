@@ -49,7 +49,8 @@ namespace improbable::phtree {
  * an array.
  */
 template <dimension_t DIM, typename SCALAR>
-static hc_pos_64_t CalcPosInArray(const PhPoint<DIM, SCALAR>& valSet, bit_width_t postfix_len) {
+static hc_pos_dim_t<DIM> CalcPosInArray(
+    const PhPoint<DIM, SCALAR>& valSet, bit_width_t postfix_len) {
     // n=DIM,  i={0..n-1}
     // i = 0 :  |0|1|0|1|0|1|0|1|
     // i = 1 :  | 0 | 1 | 0 | 1 |
@@ -64,7 +65,7 @@ static hc_pos_64_t CalcPosInArray(const PhPoint<DIM, SCALAR>& valSet, bit_width_
         // set pos-bit if bit is set in value
         pos |= (valMask & valSet[i]) >> postfix_len;
     }
-    return pos;
+    return static_cast<hc_pos_dim_t<DIM>>(pos);
 }
 
 template <dimension_t DIM, typename SCALAR>

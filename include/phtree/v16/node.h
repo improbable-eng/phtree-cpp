@@ -43,11 +43,11 @@ template <dimension_t DIM, typename Entry>
 // using EntryMap = std::map<hc_pos_dim_t<DIM>, Entry>;
 using EntryMap = typename std::conditional_t<
     DIM <= 3,
-    array_map<Entry, (uint64_t(1) << DIM)>,
+    array_map<hc_pos_dim_t<DIM>, Entry, (size_t(1) << DIM)>,
     typename std::conditional_t<
         DIM <= 8,
         sparse_map<hc_pos_dim_t<DIM>, Entry>,
-        b_plus_tree_map<std::uint64_t, Entry, (uint64_t(1) << DIM)>>>;
+        b_plus_tree_map<hc_pos_dim_t<DIM>, Entry, (uint64_t(1) << DIM)>>>;
 
 template <dimension_t DIM, typename Entry>
 using EntryIterator = typename std::remove_const_t<decltype(EntryMap<DIM, Entry>().begin())>;
@@ -77,14 +77,14 @@ template <dimension_t DIM, typename T, typename SCALAR>
 class Node {
     using KeyT = PhPoint<DIM, SCALAR>;
     using EntryT = Entry<DIM, T, SCALAR>;
-    using hc_pos_t = hc_pos_64_t;
+    using hc_pos_t = hc_pos_dim_t<DIM>;
 
   public:
     Node() : entries_{} {}
 
     // Nodes should never be copied!
     Node(const Node&) = delete;
-    Node(Node&&) = default;
+    Node(Node&&) noexcept = default;
     Node& operator=(const Node&) = delete;
     Node& operator=(Node&&) = delete;
 

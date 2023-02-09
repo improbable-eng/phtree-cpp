@@ -65,7 +65,7 @@ using namespace ::phtree::bptree::detail;
  *   merging by trying to reduce `dead space`
  *   (space between key1 and key2 that exceeds (key2 - key1)).
  */
-template <typename KeyT, typename ValueT, std::uint64_t COUNT_MAX>
+template <typename KeyT, typename ValueT, size_t COUNT_MAX>
 class b_plus_tree_map {
     static_assert(std::is_integral<KeyT>() && "Key type must be integer");
     static_assert(std::is_unsigned<KeyT>() && "Key type must unsigned");
@@ -127,7 +127,7 @@ class b_plus_tree_map {
         return *this;
     }
 
-    ~b_plus_tree_map() {
+    ~b_plus_tree_map() noexcept {
         delete root_;
     }
 
