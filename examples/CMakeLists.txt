@@ -1,6 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(Example)
+project(phtree-examples)
 
-set(SOURCE_FILES example.cc)
-add_executable(Example ${SOURCE_FILES})
+add_executable(Example example.cc)
 target_link_libraries(Example phtree)

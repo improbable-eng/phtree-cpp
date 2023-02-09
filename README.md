@@ -1,17 +1,28 @@
-**Note: for updates please also check the [fork](https://github.com/tzaeschke/phtree-cpp) by the original PH-Tree developer.**
+**This is a fork of [Improbable's (currently unmaintained) PH-tree](https://github.com/improbable-eng/phtree-cpp)**.
+
+Multi-dimensional / spatial index with very fast insert/erase/relocate operations and scalability with large datasets. 
+This library is C++ / header only.
+
+![Bazel Linux build](https://github.com/tzaeschke/phtree-cpp/actions/workflows/bazel.yml/badge.svg)
+![CMake Linux build](https://github.com/tzaeschke/phtree-cpp/actions/workflows/cmake.yml/badge.svg)
+![CMake MSBuild 17.3.1](https://github.com/tzaeschke/phtree-cpp/actions/workflows/cmake-windows.yml/badge.svg)
+[![codecov](https://codecov.io/gh/tzaeschke/phtree-cpp/branch/master/graph/badge.svg?token=V5XVRQG754)](https://codecov.io/gh/tzaeschke/phtree-cpp)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 # PH-Tree C++
 
-The PH-Tree is an ordered index on an n-dimensional space (quad-/oct-/2^n-tree) where each dimension is (by default)
+The [PH-Tree](https://tzaeschke.github.io/phtree-site/) is an ordered index on an n-dimensional space 
+(quad-/oct-/2^n-tree) where each dimension is (by default)
 indexed by a 64bit integer. The index order follows z-order / Morton order. The default implementation is effectively
-a 'map', i.e. *each key is associated with at most one value.*
+a 'map', i.e. *each key is associated with at most one value.* For convenience there is also a multimap implementations
+that supports multiple entries with identical keys.
 Keys are points or boxes in n-dimensional space.
 
 Two strengths of PH-Trees are fast insert/removal operations and scalability with large datasets. It also provides fast
 window queries and _k_-nearest neighbor queries, and it scales well with higher dimensions. The default implementation
 is limited to 63 dimensions.
 
-The API ist mostly analogous to STL's `std::map`, see function descriptions for details.
+The API ist mostly analogous to STL's `std::map` and `std::multimap`, see function descriptions for details.
 
 Theoretical background is listed [here](#theory).
 
@@ -23,45 +34,33 @@ More information about PH-Trees (including a Java implementation) is available [
 
 ### API Usage
 
-[Key Types](#key-types)
-
-[Basic operations](#basic-operations)
-
-[Queries](#queries)
-
-* [for_each](#for-each-example)
-
-* [Iterators](#iterator-examples)
-
-* [Filters](#filters)
-
-* [Distance Functions](#distance-functions)
-
-[Converters](#converters)
-
-[Custom Key Types](#custom-key-types)
-
-[Restrictions](#restrictions)
-
-[Troubleshooting / FAQ](#troubleshooting-faq)
+* [Key Types](#key-types)
+* [Basic operations](#basic-operations)
+* [Queries](#queries)
+  * [for_each](#for-each-example)
+  * [Iterators](#iterator-examples)
+  * [Filters](#filters)
+  * [Filters for MultiMaps](#filters-for-multimaps)
+  * [Distance Functions](#distance-functions)
+* [Converters](#converters)
+* [Custom Key Types](#custom-key-types)
+* [Restrictions](#restrictions)
+* [Troubleshooting / FAQ](#troubleshooting-faq)
 
 ### Performance
 
-[When to use a PH-Tree](#when-to-use-a-ph-tree)
-
-[Optimising Performance](#optimising-performance)
+* [When to use a PH-Tree](#when-to-use-a-ph-tree)
+* [Optimising Performance](#optimizing-performance)
 
 ### Compiling / Building
 
-[Build system & dependencies](#build-system-and-dependencies)
-
-[bazel](#bazel)
-
-[cmake](#cmake)
+* [Build system & dependencies](#build-system-and-dependencies)
+* [bazel](#bazel)
+* [cmake](#cmake)
 
 ## Further Resources
 
-[Theory](#theory)
+* [Theory](#theory)
 
 ----------------------------------
 
@@ -71,7 +70,7 @@ More information about PH-Trees (including a Java implementation) is available [
 
 #### Key Types
 
-The **PH-Tree Map** supports out of the box five types:
+The **PH-Tree Map** has five predefined tree types:
 
 - `PhTreeD` uses `PhPointD` keys, which are vectors/points of 64 bit `double`.
 - `PhTreeF` uses `PhPointF` keys, which are vectors/points of 32 bit `float`.
@@ -79,18 +78,20 @@ The **PH-Tree Map** supports out of the box five types:
 - `PhTreeBoxF` uses `PhBoxF` keys, which consist of two `PhPointF` that define an axis-aligned rectangle/box.
 - `PhTree` uses `PhPoint` keys, which are vectors/points of `std::int64`
 
-The **PH-Tree MultiMap** supports out of the box three types:
+The **PH-Tree MultiMap** has three predefined tree types:
 
 - `PhTreeMultiMapD` uses `PhPointD` keys, which are vectors/points of 64 bit `double`.
+- `PhTreeMultiMapF` uses `PhPointF` keys, which are vectors/points of 32 bit `float`.
 - `PhTreeMultiMapBoxD` uses `PhBoxD` keys, which consist of two `PhPointD` that define an axis-aligned rectangle/box.
+- `PhTreeMultiMapBoxF` uses `PhBoxF` keys, which consist of two `PhPointF` that define an axis-aligned rectangle/box.
 - `PhTreeMultiMap` uses `PhPoint` keys, which are vectors/points of `std::int64`
 
-Additional tree types can be defined easily analogous to the types above, please refer to the declaration of the tree
+Additional key types and tree types can be defined easily analogous to the types above, please refer to the declaration of the 
 types for an example. Support for custom key classes (points and boxes) as well as custom coordinate mappings can be
 implemented using custom `Converter` classes, see below. The `PhTreeMultiMap` is by default backed
 by `std::unordered_set` but this can be changed via a template parameter.
 
-The `PhTree` and `PhTreeMultiMap` types are available from `phtree.h` and `phtree_multimap.h`.
+The `PhTree` and `PhTreeMultiMap` types are declared in `phtree.h` and `phtree_multimap.h`.
 
 <a id="basic-operations"></a>
 
@@ -107,8 +108,12 @@ auto tree = PhTreeD<3, MyData>();
 PhPointD<3> p{1.1, 1.0, 10.};
 
 // Some operations
+tree.relocate(p1, p2); // Move an entry from point 1 to point 2
+tree.relocate_if(p1, p2, predicate); // Conditionally move an entry from point 1 to point 2
 tree.emplace(p, my_data);
 tree.emplace_hint(hint, p, my_data);
+tree.try_emplace(p, my_data);
+tree.try_emplace(hint, p, my_data);
 tree.insert(p, my_data);
 tree[p] = my_data;
 tree.count(p);
@@ -120,7 +125,6 @@ tree.empty();
 tree.clear();
 
 // Multi-map only
-tree.relocate(p_old, p_new, value);
 tree.estimate_count(query);
 ```
 
@@ -128,9 +132,10 @@ tree.estimate_count(query);
 
 #### Queries
 
-* For-each over all elements: `tree.fore_each(callback);`
+* For-each over all elements: `tree.for_each(callback);`
+  **Note that `for_each` tends to be 10%-20% faster than using an iterator.**
 * Iterator over all elements: `auto iterator = tree.begin();`
-* For-each with box shaped window queries: `tree.fore_each(PhBoxD(min, max), callback);`
+* For-each with box shaped window queries: `tree.for_each(PhBoxD(min, max), callback);`
 * Iterator for box shaped window queries: `auto q = tree.begin_query(PhBoxD(min, max));`
 * Iterator for _k_ nearest neighbor queries: `auto q = tree.begin_knn_query(k, center_point, distance_function);`
 * Custom query shapes, such as spheres: `tree.for_each(callback, FilterSphere(center, radius, tree.converter()));`
@@ -148,7 +153,7 @@ struct Counter {
     size_t n_ = 0;
 };
 
-// Count entries inside of an axis aligned box defined by the two points (1,1,1) and (3,3,3)
+// Count entries inside an axis aligned box defined by the two points (1,1,1) and (3,3,3)
 Counter callback;
 tree.for_each({{1, 1, 1}, {3, 3, 3}}, callback);
 // callback.n_ is now the number of entries in the box.
@@ -164,18 +169,18 @@ for (auto it : tree) {
     ...
 }
 
-// Iterate over all entries inside of an axis aligned box defined by the two points (1,1,1) and (3,3,3)    
+// Iterate over all entries inside an axis aligned box defined by the two points (1,1,1) and (3,3,3)    
 for (auto it = tree.begin_query({{1, 1, 1}, {3, 3, 3}}); it != tree.end(); ++it) {
     ...
 }
 
 // Find 5 nearest neighbors of (1,1,1)    
-for (auto it = tree.begin_knn_query(5, {1, 1, 1}); it != tree.end(); ++it) {
+for (auto it = tree.begin_knn_query(5, {1, 1, 1}, DistanceEuclidean<3>())); it != tree.end(); ++it) {
     ...
 }
 ```
 
-<a id="Filters"></a>
+<a id="filters"></a>
 
 ##### Filters
 
@@ -183,7 +188,8 @@ All queries allow specifying an additional filter. The filter is called for ever
 returned (subject to query constraints) and to every node in the tree that the query decides to traverse (also subject
 to query constraints). Returning `true` in the filter does not change query behaviour, returning `false` means that the
 current value or child node is not returned or traversed. An example of a geometric filter can be found
-in `phtree/common/filter.h` in `FilterAABB`.
+in `phtree/common/filter.h` in `FilterAABB` or `FilterSphere` (for examples with box keys see
+`FilterBoxAABB` or `FilterBoxSphere`).
 
 ```C++
 template <dimension_t DIM, typename T>
@@ -198,11 +204,45 @@ struct FilterByValueId {
     }
 };
 
-// Iterate over all entries inside of an axis aligned box defined by the two points (1,1,1) and (3,3,3).
+// Iterate over all entries inside an axis aligned box defined by the two points (1,1,1) and (3,3,3).
 // Return only entries that suffice the filter condition.    
 for (auto it = tree.begin_query({1, 1, 1}, {3, 3, 3}, FilterByValueId<3, T>())); it != tree.end(); ++it) {
     ...
 }
+```
+
+Note: The filter example works only for the 'map' version of the PH-Tree, such as `PhTree`, `PhTreeD`, ... . Filters for
+the `PhTreeMultiMap` are discussed in the next section.
+
+<a id="filters-for-multimaps"></a>
+
+#### Filters for MultiMaps
+
+The `PhTreeMultiMap` requires a different type of filter. In order to function as a multimap, it uses a collections
+("buckets") as entries for each occupied coordinate. The buckets allow it to store several values per coordinate. When
+using a filter, the PH-Tree will check `IsEntryValid` for every *bucket* (this is different from version 1.x.x where it
+called `IsEntryValid` for every entry in a bucket but never for the bucket itself). Since 2.0.0 there is a new function
+required in every multimap filter: `IsBucketEntryValid`. It is called once for every entry in a bucket if the bucket
+passed `IsEntryValid`. An example of a geometric filter can be found in `phtree/common/filter.h` in `FilterMultiMapAABB`
+.
+
+```C++
+template <dimension_t DIM, typename T>
+struct FilterMultiMapByValueId {
+    template <typename BucketT>
+    [[nodiscard]] constexpr bool IsEntryValid(const PhPoint<DIM>& key, const BucketT& bucket) const {
+        // Arbitrary example: Only allow keys/buckets with a certain property, e.g. keys that lie within a given sphere.
+        return check_some_geometric_propert_of_key(key);
+    }
+    [[nodiscard]] constexpr bool IsBucketEntryValid(const PhPoint<DIM>& key, const T& value) const {
+        // Arbitrary example: Only allow values with even values of id_
+        return value.id_ % 2 == 0;
+    }
+    [[nodiscard]] constexpr bool IsNodeValid(const PhPoint<DIM>& prefix, int bits_to_ignore) const {
+        // Allow all nodes
+        return true;
+    }
+};
 ```
 
 <a id="distance-functions"></a>
@@ -250,7 +290,14 @@ double resultung_float = ((double)my_int) / 1000000.;
 It is obvious that this approach leads to a loss of numerical precision. Moreover, the loss of precision depends on the
 actual range of the double values and the constant. The chosen constant should probably be as large as possible but
 small enough such that converted values do not exceed the 64bit limit of `std::int64_t`. Note that the PH-Tree provides
-several `ConverterMultiply` implementations for point/box and double/float.
+several `ConverterMultiply` implementations for point/box and double/float. For example:
+
+```C++
+// Multiply converter that multiplies by 1'000'000 (and divides by 1).
+auto tree = PhTreeD<DIM, T, ConverterMultiply<DIM, 1000000, 1>>();
+```
+
+You can also write your own converter. For example:
 
 ```C++
 template <dimension_t DIM>
@@ -371,10 +418,10 @@ void test() {
 **Problem**: The PH-Tree appears to be losing updates/insertions.
 
 **Solution**: Remember that the PH-Tree is a *map*, keys will not be inserted if an identical key already exists. The
-easiest solution is to use one of the `PhTreeMultiMap` implementations. Alternatively, this can be solved by turning the
-PH-Tree into a multi-map, for example by using something like `std::map` or `std::set` as member type:
-`PhTree<3, std::set<MyDataClass>>`. The `set` instances can then be used to handle key conflicts by storing multiple
-entries for the same key. The logic to handle conflicts must currently be implemented manually by the user.
+easiest solution is to use one of the `PhTreeMultiMap` implementations. Alternatively, this can be solved by turning a
+`PhTree` into a multi-map, for example by using something like `std::map` or `std::set` as member type:
+`PhTree<3, T, CONVERTER, std::set<MyDataClass>>`. The `set` instances can then be used to handle key conflicts by 
+storing multiple entries for the same key. The logic to handle conflicts must currently be implemented manually.
 
 ----------------------------------
 
@@ -393,7 +440,7 @@ heavily on the actual dataset, usage patterns, hardware, ... .
 **Generally, the PH-Tree tends to have the following advantages:**
 
 * Fast insertion/removal times. While some indexes, such as *k*-D-trees, trees can be build from scratch very fast, they
-  tend to be be much slower when removing entries or when indexing large datasets. Also, most indexes require
+  tend to be much slower when removing entries or when indexing large datasets. Also, most indexes require
   rebalancing which may result in unpredictable latency (R-trees) or may result in index degradation if delayed
   (*k*D-trees).
 
@@ -407,7 +454,7 @@ heavily on the actual dataset, usage patterns, hardware, ... .
 * Scalability with the number of dimensions. The PH-Tree has been shown to deal "well" with high dimensional data (
   1000k+ dimensions). What does "well" mean?
     * It works very well for up to 30 (sometimes 50) dimensions. **Please note that the C++ implementation has not been
-      optimised nearly as much as the Java implementation.**
+      optimized nearly as much as the Java implementation.**
     * For more dimensions (Java was tested with 1000+ dimensions) the PH-Tree still has excellent insertion/deletion
       performance. However, the query performance cannot compete with specialised high-dim indexes such as cover-trees
       or pyramid-trees (these tend to be *very slow* on insertion/deletion though).
@@ -426,54 +473,60 @@ heavily on the actual dataset, usage patterns, hardware, ... .
 * PH-Trees are not very efficient in scenarios where queries tend to return large result sets in the order of 1000 or
   more.
 
-<a id="optimising-performance"></a>
+<a id="optimizing-performance"></a>
 
-### Optimising Performance
+### Optimizing Performance
 
 There are numerous ways to improve performance. The following list gives an overview over the possibilities.
 
-1) **Use `for_each` instead of iterators**. This should improve performance of queries by 5%-10%.
+1) **Use `-O3 -mavx, -mbmi2` compiler flags**. Ensure that vectorization and count trailing zeros (CTZ/TZCNT) are 
+   enabled. 
 
-2) **Use `emplace_hint` if possible**. When updating the position of an entry, the naive way is to use `erase()`
-   /`emplace()`. With `emplace_hint`, insertion can avoid navigation to the target node if the insertion coordinate is
-   close to the removal coordinate.
-    ```c++
-    auto iter = tree.find(old_position);
-    tree.erase(iter);
-    tree.emplace_hint(iter, new_position, value);
-    ```
+2) **Use `for_each` instead of iterators**. This should improve performance of queries by 10%-20%.
 
-3) **Store pointers instead of large data objects**. For example, use `PhTree<3, MyLargeClass*>` instead of
+3) **Use `relocate()` / `relocate_if()` if possible**. When updating the position of an entry, the naive way is 
+   to use `erase()` / `emplace()`. With `relocate` / `relocate_if()`, insertion can avoid a lot of duplicate 
+   navigation in the tree if the new coordinate is close to the old coordinate.
+   ```c++
+   relocate(old_position, new_position);
+   relocate_if(old_position, new_position, [](const T& value) { return [true/false]; });
+   ```
+   The multi-map version relocates all values unless a 'value' is specified to identify the value to be relocated: 
+   ```c++
+   relocate(old_position, new_position, value);
+   ```
+
+4) **Store pointers instead of large data objects**. For example, use `PhTree<3, MyLargeClass*>` instead of
    `PhTree<3, MyLargeClass>` if `MyLargeClass` is large.
     * This prevents the PH-Tree from storing the values inside the tree. This should improve cache-locality and thus
       performance when operating on the tree.
     * Using pointers is also useful if construction/destruction of values is expensive. The reason is that the tree has
       to construct and destruct objects internally. This may be avoidable but is currently still happening.
 
-4) **Use non-box query shapes**. Depending on the use case it may be more suitable to use a custom filter for queries.
+5) **Use non-box query shapes**. Depending on the use case it may be more suitable to use a custom filter for queries.
    For example:
 
    `tree.for_each(callback, FilterSphere(center, radius, tree.converter()));`
 
-5) **Use a different data converter**. The default converter of the PH-Tree results in a reasonably fast index. Its
+6) **Use a different data converter**. The default converter of the PH-Tree results in a reasonably fast index. Its
    biggest advantage is that it provides lossless conversion from floating point coordinates to PH-Tree coordinates
    (integers) and back to floating point coordinates.
     * The `ConverterMultiply` is a lossy converter but it tends to improve performance by 10% or more. This is not
       caused by faster operation in the converter itself but by a more compact tree shape. The example shows how to use
       a converter that multiplies coordinates by 100'000, thus preserving roughly 5 fractional digits:
 
-      `PhTreeD<DIM, T, ConverterMultiply<3, 100 * 1000, 1>>`
+      `PhTreeD<DIM, T, ConverterMultiply<3, 100 * 1000, 1>>()`
 
-6) **Use custom key types**. By default, the PH-Tree accepts only coordinates in the form of its own key types, such
+7) **Use custom key types**. By default, the PH-Tree accepts only coordinates in the form of its own key types, such
    as `PhPointD`, `PhBoxF` or similar. To avoid conversion from custom types to PH-Tree key types, custom classes can
    often be adapted to be accepted directly by the PH-Tree without conversion. This requires implementing a custom
    converter as described in the section about [Custom Key Types](#custom-key-types).
 
-7) Advanced: **Adapt internal Node representation**. Depending on the dimensionality `DIM`, the PH-Tree uses internally
-   in
-   `Nodes` different container types to hold entries. By default, it uses an array for `DIM<=3`, a vector for `DIM<=8`
-   and an ordered map for `DIM>8`. Adapting these thresholds can have strong effects on performance as well as memory
-   usage. One example: Changing the threshold to use vector for `DIM==3` reduced performance of the `update_d` benchmark
+8) Advanced: **Adapt internal Node representation**. Depending on the dimensionality `DIM`, the PH-Tree uses 
+   internally in `Nodes` different container types to hold entries. 
+   By default, it uses an array for `DIM<=3`, a vector for `DIM<=8` and an ordered map for `DIM>8`. 
+   Adapting these thresholds can have strong effects on performance as well as memory usage. 
+   One example: Changing the threshold to use vector for `DIM==3` reduced performance of the `update_d` benchmark
    by 40%-50% but improved performance of `query_d` by 15%-20%. The threshold is currently hardcoded.     
    The effects are not always easy to predict but here are some guidelines:
     * "array" is the fastest solution for insert/update/remove type operations. Query performance is "ok". Memory
@@ -487,66 +540,125 @@ There are numerous ways to improve performance. The following list gives an over
 
 ## Compiling the PH-Tree
 
-This section will guide you through the initial build system and IDE you need to go through in order to build and run
-custom versions of the PH-Tree on your machine.
+The PH-Tree index itself is a *header only* library, it can be used by simply copying everything in the 
+`include/phtree` folder. 
+The examples, tests and benchmarks can be build with bazel or cmake.  
 
 <a id="build-system-and-dependencies"></a>
 
 ### Build system & dependencies
 
-PH-Tree can be built with *cmake 3.14* or [Bazel](https://bazel.build) as build system. All code is written in C++
-targeting the C++17 standard. The code has been verified to compile on Linux with Clang 9, 10, 11, 12, and GCC 9, 10,
-11, and on Windows with Visual Studio 2019.
-
-#### Ubuntu Linux
-
-* Installing [clang](https://apt.llvm.org/)
-
-* Installing [bazel](https://docs.bazel.build/versions/main/install-ubuntu.html)
-
-* To install [cmake](https://launchpad.net/~hnakamur/+archive/ubuntu/cmake):
-
+PH-Tree can be built with [Bazel](https://bazel.build) (primary build system) or with 
+[cmake](https://cmake.org/) *3.14*. 
+All code is written in C++ targeting the C++17 standard. 
+The code has been verified to compile on Linux with Clang 11 and GCC 9, and on Windows with Visual Studio 2019
+(except benchmarks, which don't work with VS).
+The PH-tree makes use of vectorization and CountTrailingZeros/CTZ/TZCNT, so suggested compilation options for 
+clang/gcc are:
 ```
-sudo add-apt-repository ppa:hnakamur/libarchive
-sudo add-apt-repository ppa:hnakamur/libzstd
-sudo add-apt-repository ppa:hnakamur/cmake
-sudo apt update
-sudo apt install cmake
+-O3 -mavx -mbmi2
 ```
 
-#### Windows
-
-To build on Windows, you'll need to have a version of Visual Studio 2019 installed (likely Professional), in addition to
-[Bazel](https://docs.bazel.build/versions/master/windows.html) or
-[cmake](https://cmake.org/download/).
 
 <a id="bazel"></a>
 
 ### Bazel
+`WORKSPACE` file:
+```
+http_archive(
+    name = "phtree",
+    strip_prefix = "phtree-cpp-v1.5.0",
+    url = "https://github.com/tzaeschke/phtree-cpp",
+)
+```
+`BUILD` file:
+```
+cc_binary(
+    ...
+    deps = [
+        "@phtree//:phtree",
+    ],
+)
+```
 
 Once you have set up your dependencies, you should be able to build the PH-Tree repository by running:
-
 ```
 bazel build ...
 ```
 
 Similarly, you can run all unit tests with:
-
 ```
 bazel test ...
 ```
 
+Benchmarks:
+```
+bazel run //benchmark:update_mm_d_benchmark --config=benchmark  -- --benchmark_counters_tabular=true
+```
+
+
 <a id="cmake"></a>
 
-### cmake
+### cmake dependency
+The library supports three types of cmake dependency management, `FetchContent`, `find_package()` and `add_subfolder()`.
+All three approaches are used in [this example project](https://github.com/tzaeschke/test-phtree-cpp-cmake).
+#### FetchContent
+With `FetchContent_...()`:
+```
+include(FetchContent)
+FetchContent_Declare(
+        phtree
+        GIT_REPOSITORY https://github.com/tzaeschke/phtree-cpp.git
+        GIT_TAG v1.5.0
+)
+FetchContent_MakeAvailable(phtree)
+```
 
+#### find_package()
+You need to build the library with:
+```
+mkdir out && cd out
+cmake .. -DPHTREE_INSTALL=on
+sudo cmake --build . --config Release --target install -- -j <number of cores>
+```
+Note that the option `CMAKE_INSTALL_PREFIX:PATH=...` does _not_ work.
+The library can then be included with:
+```
+find_package(phtree CONFIG REQUIRED)
+add_executable(ExampleProject example.cc)
+target_link_libraries(ExampleProject phtree::phtree)
+```
+
+#### add_subfolder()
+For this you can simply copy the PH-Tree source code into your project (you can skip `benchmark` and `test`) and
+then include the folder with `add_subdirectory(phtree-cpp)`.
+
+
+### cmake build
+`cmake` uses `ccache` when available.
 ```
 mkdir build
 cd build
 cmake ..
 cmake --build .
+```
+
+Run example:
+```
+cmake .. -DPHTREE_BUILD_EXAMPLES=ON
+cmake --build .
 ./example/Example
 ```
+
+Run tests:
+```
+cmake .. -DPHTREE_BUILD_TESTS=ON
+cmake --build .
+ctest
+```
+Next to example (`PHTREE_BUILD_EXAMPLES`) there are also tests (`PHTREE_BUILD_TESTS`) and 
+benchmarks (`PHTREE_BUILD_BENCHMARKS`). To build all, use `PHTREE_BUILD_ALL`. 
+**Note that the benchmarks currently don't work on Windows.** 
 
 ## Further Resources
 
