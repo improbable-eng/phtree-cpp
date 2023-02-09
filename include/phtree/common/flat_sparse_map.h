@@ -96,19 +96,19 @@ class sparse_map {
     }
 
     template <typename... Args>
-    auto emplace(size_t key, Args&&... args) {
+    auto emplace(KeyT key, Args&&... args) {
         auto iter = lower_bound(key);
         return try_emplace_base(iter, key, std::forward<Args>(args)...);
     }
 
     template <typename... Args>
-    auto try_emplace(size_t key, Args&&... args) {
+    auto try_emplace(KeyT key, Args&&... args) {
         auto iter = lower_bound(key);
         return try_emplace_base(iter, key, std::forward<Args>(args)...);
     }
 
     template <typename... Args>
-    auto try_emplace(iterator iter, size_t key, Args&&... args) {
+    auto try_emplace(iterator iter, KeyT key, Args&&... args) {
         return try_emplace_base(iter, key, std::forward<Args>(args)...).first;
     }
 

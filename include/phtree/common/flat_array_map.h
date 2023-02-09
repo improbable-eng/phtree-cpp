@@ -185,18 +185,18 @@ class flat_array_map {
         assert(index < SIZE);
         assert(!occupied(index));
         // flip the bit
-        occupancy ^= (1ul << index);
+        occupancy ^= (std::uint64_t(1) << index);
     }
 
     void unoccupy(size_t index) {
         assert(index < SIZE);
         assert(occupied(index));
         // flip the bit
-        occupancy ^= (1ul << index);
+        occupancy ^= (std::uint64_t(1) << index);
     }
 
     [[nodiscard]] bool occupied(size_t index) const {
-        return (occupancy >> index) & 1;
+        return (occupancy >> index) & std::uint64_t(1);
     }
 
     std::uint64_t occupancy = 0;
