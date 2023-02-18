@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Tilmann Zäschke
+ * Copyright 2023 Tilmann Zäschke
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,18 +17,27 @@
 #ifndef PHTREE_COMMON_B_PLUS_TREE_BASE_H
 #define PHTREE_COMMON_B_PLUS_TREE_BASE_H
 
-#include "bits.h"
+#include "bpt_fixed_vector.h"
+#include <algorithm>
 #include <cassert>
+#include <cstddef>
+#include <cstring>
 #include <tuple>
 #include <vector>
 
 namespace phtree::bptree::detail {
 
-template <size_t MAX_, size_t MIN_, size_t INIT_>
+enum bpt_config_container {
+    VAR,    // std::vector
+    FIXED,  // bpt_vector
+};
+
+template <size_t MAX_, size_t MIN_, size_t INIT_, bpt_config_container MODE_ = VAR>
 struct bpt_config {
     static constexpr size_t MAX = MAX_;
     static constexpr size_t MIN = MIN_;
     static constexpr size_t INIT = INIT_;
+    static constexpr bpt_config_container MODE = MODE_;
 };
 
 template <typename KeyT, typename NInnerT, typename NLeafT>
@@ -64,19 +73,24 @@ class bpt_node_base {
 
 template <
     typename KeyT,
+    typename ValueT,
     typename NInnerT,
     typename NLeafT,
-    typename ThisT,
-    typename EntryT,
-    typename IterT,
+    bool IsLeaf,
     typename CFG = bpt_config<16, 2, 2>>
 class bpt_node_data : public bpt_node_base<KeyT, NInnerT, NLeafT> {
     // TODO This could be improved but requires a code change to move > 1 entry when merging.
     static_assert(CFG::MIN == 2 && "M_MIN != 2 is not supported");
-    using DataIteratorT = decltype(std::vector<EntryT>().begin());
-    friend IterT;
+    using ValueT2 = std::conditional_t<IsLeaf, ValueT, bpt_node_base<KeyT, NInnerT, NLeafT>*>;
+    using EntryT = std::pair<KeyT, ValueT2>;
+    using ContainerT = std::conditional_t<
+        CFG::MODE == bpt_config_container::VAR,
+        std::vector<EntryT>,
+        bpt_vector<EntryT, CFG::MAX>>;
+    using ThisT = std::conditional_t<IsLeaf, NLeafT, NInnerT>;
 
   public:
+    using DataIteratorT = typename ContainerT::iterator;
     // MSVC++ requires this to be public, otherwise there it clashes with sub-classes' NodeT!?!?!
     using NodeT = bpt_node_base<KeyT, NInnerT, NLeafT>;
     explicit bpt_node_data(bool is_leaf, NInnerT* parent, ThisT* prev, ThisT* next) noexcept
@@ -90,12 +104,14 @@ class bpt_node_data : public bpt_node_base<KeyT, NInnerT, NLeafT> {
     virtual ~bpt_node_data() noexcept = default;
 
     [[nodiscard]] auto lower_bound(KeyT key) noexcept {
+        // If this doesn´t compile, check #include <algorithm> !!!
         return std::lower_bound(data_.begin(), data_.end(), key, [](EntryT& left, const KeyT key) {
             return left.first < key;
         });
     }
 
-    [[nodiscard]] auto lower_bound_as_iter(KeyT key) noexcept {
+    template <typename IterT>
+    [[nodiscard]] IterT lower_bound_as_iter(KeyT key) noexcept {
         auto it = lower_bound(key);
         return it == data_.end() ? IterT{} : IterT(this->as_leaf(), std::move(it));
     }
@@ -109,13 +125,13 @@ class bpt_node_data : public bpt_node_base<KeyT, NInnerT, NLeafT> {
         DataIteratorT iter_;
     };
 
-    auto erase_entry(const DataIteratorT& it_to_erase, NodeT*& root) {
+    auto erase_entry(DataIteratorT it_to_erase, NodeT*& root) {
         auto max_key = data_.back().first;
         auto it_after_erased = data_.erase(it_to_erase);
         return check_merge(it_after_erased, max_key, root);
     }
 
-    auto check_merge(const DataIteratorT& iter_after_erased, KeyT max_key_old, NodeT*& root) {
+    auto check_merge(DataIteratorT iter_after_erased, KeyT max_key_old, NodeT*& root) {
         using ER = EraseResult;
         auto& parent_ = this->parent_;
         bool tail_entry_erased = iter_after_erased == data_.end();
@@ -163,7 +179,7 @@ class bpt_node_data : public bpt_node_base<KeyT, NInnerT, NLeafT> {
                     prev_node->parent_->update_key(old1, new1, prev_node);
                 }
                 if (!tail_entry_erased) {
-                    return ER{prev_node, --prev_data.end()};
+                    return ER{prev_node, prev_data.end() - 1};
                 }
                 return next_node == nullptr ? ER{} : ER{next_node, next_node->data_.begin()};
             } else if (next_node_ != nullptr && next_node_->data_.size() < CFG::MAX) {
@@ -205,6 +221,7 @@ class bpt_node_data : public bpt_node_base<KeyT, NInnerT, NLeafT> {
         return false;
     }
 
+    template <typename IterT>
     auto check_split_and_adjust_iterator(DataIteratorT it, KeyT key, NodeT*& root) {
         auto* dest = (ThisT*)this;
         bool is_split = this->check_split(root);
@@ -306,29 +323,23 @@ class bpt_node_data : public bpt_node_base<KeyT, NInnerT, NLeafT> {
     }
 
   public:
-    std::vector<EntryT> data_;
+    ContainerT data_;
     ThisT* prev_node_;
     ThisT* next_node_;
 };
 
-template <typename KeyT, typename NLeafT, typename IterT, typename CFG = bpt_config<16, 2, 2>>
+// This type is replaced with the proper type inside bpt_node_data
+using bpt_dummy = void;
+
+template <typename KeyT, typename NLeafT, typename CFG = bpt_config<16, 2, 2>>
 class bpt_node_inner
-: public bpt_node_data<
-      KeyT,
-      bpt_node_inner<KeyT, NLeafT, IterT, CFG>,
-      NLeafT,
-      bpt_node_inner<KeyT, NLeafT, IterT, CFG>,
-      std::pair<KeyT, bpt_node_base<KeyT, bpt_node_inner<KeyT, NLeafT, IterT, CFG>, NLeafT>*>,
-      IterT,
-      CFG> {
-    using NInnerT = bpt_node_inner<KeyT, NLeafT, IterT, CFG>;
+: public bpt_node_data<KeyT, bpt_dummy, bpt_node_inner<KeyT, NLeafT, CFG>, NLeafT, false, CFG> {
+    using NInnerT = bpt_node_inner<KeyT, NLeafT, CFG>;
     using NodePtrT = bpt_node_base<KeyT, NInnerT, NLeafT>*;
-    using EntryT = std::pair<KeyT, NodePtrT>;
 
   public:
     explicit bpt_node_inner(NInnerT* parent, NInnerT* prev, NInnerT* next) noexcept
-    : bpt_node_data<KeyT, NInnerT, NLeafT, NInnerT, EntryT, IterT, CFG>(false, parent, prev, next) {
-    }
+    : bpt_node_data<KeyT, bpt_dummy, NInnerT, NLeafT, false, CFG>(false, parent, prev, next) {}
 
     ~bpt_node_inner() noexcept {
         for (auto& e : this->data_) {
@@ -426,14 +437,17 @@ class bpt_node_inner
     }
 };
 
-template <typename LeafIteratorT, typename NLeafT, typename NodeT, typename F1>
+template <typename NLeafT, typename NodeT, typename F1>
 class bpt_iterator_base {
-    using IterT = bpt_iterator_base<LeafIteratorT, NLeafT, NodeT, F1>;
+    using IterT = bpt_iterator_base<NLeafT, NodeT, F1>;
 
-    template <typename A, typename B, typename C, typename D, typename E, typename F, typename G>
+    template <typename A, typename B, typename C, typename D, bool E, typename F>
     friend class bpt_node_data;
     friend F1;
     friend NLeafT;
+
+  protected:
+    using LeafIteratorT = typename NLeafT::DataIteratorT;
 
   public:
     // Arbitrary position iterator
@@ -509,12 +523,11 @@ template <typename KeyT, typename NodeT>
         auto it = node->as_inner()->lower_bound(key);
         node = it != node->as_inner()->data_.end() ? it->second : nullptr;
     }
-    return (LeafT)node;
+    return static_cast<LeafT>(node);  // `node` may be nullptr
 }
 
 template <typename KeyT, typename NodeT>
 [[nodiscard]] static auto lower_bound_or_last_leaf(KeyT key, NodeT* node) noexcept {
-    using LeafT = decltype(node->as_leaf());
     while (!node->is_leaf()) {
         auto it = node->as_inner()->lower_bound(key);
         if (it == node->as_inner()->data_.end()) {
@@ -523,7 +536,7 @@ template <typename KeyT, typename NodeT>
             node = it->second;
         }
     }
-    return (LeafT)node;
+    return node->as_leaf();
 }
 
 }  // namespace phtree::bptree::detail

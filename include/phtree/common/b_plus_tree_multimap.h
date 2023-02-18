@@ -81,12 +81,10 @@ class b_plus_tree_multimap {
 
     class bpt_node_leaf;
     class bpt_iterator;
-    using LeafEntryT = std::pair<KeyT, ValueT>;
     using IterT = bpt_iterator;
     using NLeafT = bpt_node_leaf;
-    using NInnerT = bpt_node_inner<KeyT, NLeafT, IterT>;
+    using NInnerT = bpt_node_inner<KeyT, NLeafT>;
     using NodeT = bpt_node_base<KeyT, NInnerT, bpt_node_leaf>;
-    using LeafIteratorT = decltype(std::vector<LeafEntryT>().begin());
     using TreeT = b_plus_tree_multimap<KeyT, ValueT>;
 
   public:
@@ -140,7 +138,7 @@ class b_plus_tree_multimap {
 
     [[nodiscard]] auto lower_bound(const KeyT key) {
         auto leaf = lower_bound_leaf(key, root_);
-        return leaf != nullptr ? leaf->lower_bound_as_iter(key) : IterT{};
+        return leaf != nullptr ? leaf->template lower_bound_as_iter<IterT>(key) : IterT{};
     }
 
     [[nodiscard]] auto lower_bound(const KeyT key) const {
@@ -275,7 +273,7 @@ class b_plus_tree_multimap {
     }
 
   private:
-    using bpt_leaf_super = bpt_node_data<KeyT, NInnerT, NLeafT, NLeafT, LeafEntryT, IterT>;
+    using bpt_leaf_super = bpt_node_data<KeyT, ValueT, NInnerT, NLeafT, true>;
     class bpt_node_leaf : public bpt_leaf_super {
       public:
         explicit bpt_node_leaf(NInnerT* parent, NLeafT* prev, NLeafT* next) noexcept
@@ -284,7 +282,7 @@ class b_plus_tree_multimap {
         ~bpt_node_leaf() noexcept = default;
 
         [[nodiscard]] IterT find(KeyT key) noexcept {
-            IterT iter_full = this->lower_bound_as_iter(key);
+            IterT iter_full = this->template lower_bound_as_iter<IterT>(key);
             if (!iter_full.is_end() && iter_full.iter_->first == key) {
                 return iter_full;
             }
@@ -295,7 +293,7 @@ class b_plus_tree_multimap {
         auto try_emplace(KeyT key, NodeT*& root, size_t& entry_count, Args&&... args) {
             auto it = this->lower_bound(key);
             ++entry_count;
-            auto full_it = this->check_split_and_adjust_iterator(it, key, root);
+            auto full_it = this->template check_split_and_adjust_iterator<IterT>(it, key, root);
             auto it_result =
                 full_it.node_->data_.emplace(full_it.iter_, key, std::forward<Args>(args)...);
             return IterT(full_it.node_, it_result);
@@ -316,8 +314,8 @@ class b_plus_tree_multimap {
         }
     };
 
-    class bpt_iterator : public bpt_iterator_base<LeafIteratorT, NLeafT, NodeT, TreeT> {
-        using SuperT = bpt_iterator_base<LeafIteratorT, NLeafT, NodeT, TreeT>;
+    class bpt_iterator : public bpt_iterator_base<NLeafT, NodeT, TreeT> {
+        using SuperT = bpt_iterator_base<NLeafT, NodeT, TreeT>;
 
       public:
         using iterator_category = std::forward_iterator_tag;
@@ -327,7 +325,8 @@ class b_plus_tree_multimap {
         using reference = ValueT&;
 
         // Arbitrary position iterator
-        explicit bpt_iterator(NLeafT* node, LeafIteratorT it) noexcept : SuperT(node, it) {}
+        explicit bpt_iterator(NLeafT* node, typename SuperT::LeafIteratorT it) noexcept
+        : SuperT(node, it) {}
 
         // begin() iterator
         explicit bpt_iterator(NodeT* node) noexcept : SuperT(node) {}
@@ -336,11 +335,11 @@ class b_plus_tree_multimap {
         bpt_iterator() noexcept : SuperT() {}
 
         auto& operator*() const noexcept {
-            return const_cast<LeafEntryT&>(*this->iter());
+            return *this->iter();
         }
 
         auto* operator->() const noexcept {
-            return const_cast<LeafEntryT*>(&*this->iter());
+            return &*this->iter();
         }
     };
 
