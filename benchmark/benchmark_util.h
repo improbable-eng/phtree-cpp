@@ -23,18 +23,16 @@
 
 namespace improbable::phtree::phbenchmark {
 
-using namespace improbable::phtree;
-
 namespace {
 template <dimension_t DIM>
 auto CreateDataCUBE = [](auto& points,
                          size_t num_entities,
                          std::uint32_t seed,
-                         double world_mininum,
+                         double world_minimum,
                          double world_maximum,
                          auto set_coordinate) {
     std::default_random_engine random_engine{seed};
-    std::uniform_real_distribution<> distribution(world_mininum, world_maximum);
+    std::uniform_real_distribution<> distribution(world_minimum, world_maximum);
     for (size_t i = 0; i < num_entities; ++i) {
         auto& p = points[i];
         for (dimension_t d = 0; d < DIM; ++d) {
@@ -102,12 +100,13 @@ auto CreatePointDataMinMax = [](auto& points,
                                 double world_maximum,
                                 double fraction_of_duplicates) {
     auto set_coordinate_lambda = [](auto& p, dimension_t dim, auto value) {
-        p[dim] = static_cast < typename std::remove_reference_t<decltype(p[0])>>(value);
+        p[dim] = static_cast<typename std::remove_reference_t<decltype(p[0])>>(value);
     };
     // Create at least 1 unique point
     // Note that the following point generator is likely, but not guaranteed, to created unique
     // points.
-    int num_unique_entries = static_cast<int>(1 + (num_entities - 1) * (1. - fraction_of_duplicates));
+    int num_unique_entries =
+        static_cast<int>(1 + static_cast<double>(num_entities - 1) * (1. - fraction_of_duplicates));
     points.reserve(num_entities);
     switch (test_generator) {
     case CUBE:
@@ -142,7 +141,8 @@ auto CreateBoxDataMinMax = [](auto& points,
     // Create at least 1 unique point
     // Note that the following point generator is likely, but not guaranteed, to created unique
     // points.
-    int num_unique_entries = static_cast<int>(1 + (num_entities - 1) * (1. - fraction_of_duplicates));
+    int num_unique_entries =
+        static_cast<int>(1 + static_cast<double>(num_entities - 1) * (1. - fraction_of_duplicates));
     points.reserve(num_entities);
     switch (test_generator) {
     case CUBE:
